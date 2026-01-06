@@ -117,7 +117,7 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
     # Get publication IDs already sent to this user
     sent_pub_ids = db.session.query(DigestLog.publication_id).filter(
         DigestLog.user_id == user.id
-    ).subquery()
+    ).scalar_subquery()
 
     pub_dict = {}
 
@@ -325,7 +325,7 @@ def get_country_watch_publications(user, days_back=30, max_publications=None):
     # Get publication IDs already sent to this user
     sent_pub_ids = db.session.query(DigestLog.publication_id).filter(
         DigestLog.user_id == user.id
-    ).subquery()
+    ).scalar_subquery()
 
     pub_dict = {}
 
@@ -445,7 +445,7 @@ def get_resurfaced_publications(user, max_publications=None):
     # Find publication IDs that were previously sent to this user
     sent_pub_ids = db.session.query(DigestLog.publication_id).filter(
         DigestLog.user_id == user.id
-    ).subquery()
+    ).scalar_subquery()
 
     # Find ahead-of-print publications that are now published and haven't been resurfaced
     resurfaced_pubs = db.session.query(Publication).filter(
