@@ -1,13 +1,11 @@
 """
 WHO Publications Scraper for the CHAI Health Publications Tracker.
 
-This module collects publications from the World Health Organization website,
+This module collects publications from the World Health Organization API,
 extracts metadata, categorizes them by CHAI program areas, and saves them
 to the database.
 
-Target pages:
-- https://www.who.int/publications/i (main publications)
-- https://www.who.int/news-room/releases (news releases)
+Uses the WHO Publications API for reliable data access.
 """
 
 import logging
@@ -27,13 +25,17 @@ logger = logging.getLogger(__name__)
 
 # Base URL for WHO website
 WHO_BASE_URL = "https://www.who.int"
+WHO_API_URL = "https://www.who.int/api/hubs/publications"
 
-# Headers to mimic a browser request
+# Headers for API requests
 HEADERS = {
     "User-Agent": "CHAI-Health-Tracker/1.0 (Health Publications Research Tool)",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept": "application/json",
     "Accept-Language": "en-US,en;q=0.5",
 }
+
+# Number of publications to fetch from API
+MAX_PUBLICATIONS = 100
 
 
 def fetch_page(url):
@@ -488,11 +490,91 @@ def save_publication(pub_data, program_areas, subtopics=None, regions=None):
         return None
 
 
+def fetch_publications_from_api():
+    """
+    Fetch publications from the WHO Publications API.
+
+    Returns:
+        List of dictionaries with publication data
+    """
+    logger.info(f"Fetching publications from WHO API (max {MAX_PUBLICATIONS})...")
+
+    try:
+        params = {
+            '$top': MAX_PUBLICATIONS,
+            '$orderby': 'PublicationDate desc',
+        }
+
+        response = requests.get(WHO_API_URL, headers=HEADERS, params=params, timeout=60)
+        response.raise_for_status()
+
+        data = response.json()
+        publications = data.get('value', [])
+
+        logger.info(f"WHO API returned {len(publications)} publications")
+        return publications
+
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch from WHO API: {e}")
+        return []
+
+
+def parse_api_publication(api_pub):
+    """
+    Parse a publication from the WHO API response into our format.
+
+    Args:
+        api_pub: Dictionary from WHO API response
+
+    Returns:
+        Dictionary with publication data in our format
+    """
+    # Extract and clean abstract from Overview, Summary, or MetaDescription
+    abstract = None
+    overview = api_pub.get('Overview', '')
+    if overview:
+        # Strip HTML tags from overview
+        soup = BeautifulSoup(overview, 'lxml')
+        abstract = soup.get_text(strip=True)[:2000]
+    elif api_pub.get('Summary'):
+        abstract = api_pub.get('Summary')[:2000]
+    elif api_pub.get('MetaDescription'):
+        abstract = api_pub.get('MetaDescription')[:2000]
+
+    # Parse publication date
+    pub_date = None
+    is_ahead_of_print = False
+    date_str = api_pub.get('PublicationDate') or api_pub.get('PublicationDateAndTime')
+    if date_str:
+        pub_date, is_ahead_of_print = parse_date(date_str)
+
+    # Build full URL
+    url_name = api_pub.get('ItemDefaultUrl', '') or api_pub.get('UrlName', '')
+    if url_name and not url_name.startswith('http'):
+        url = f"{WHO_BASE_URL}/publications/i/item{url_name}" if not url_name.startswith('/') else f"{WHO_BASE_URL}/publications/i/item{url_name}"
+    else:
+        url = url_name
+
+    # Use IRISID or Id as external_id
+    external_id = api_pub.get('IRISID') or api_pub.get('Id') or url_name.strip('/')
+
+    return {
+        'external_id': str(external_id),
+        'title': api_pub.get('Title', ''),
+        'abstract': abstract,
+        'authors': api_pub.get('Editors'),
+        'publication_date': pub_date,
+        'is_ahead_of_print': is_ahead_of_print,
+        'url': url,
+        'publication_type': api_pub.get('Subtitle') or 'Publication',
+    }
+
+
 def fetch_who_publications():
     """
-    Main function to fetch publications from WHO website.
+    Main function to fetch publications from WHO API.
 
-    Collects publications from multiple WHO pages, extracts details,
+    Fetches publications from the WHO API, extracts details,
     categorizes them, and returns a list of publication data.
 
     Returns:
@@ -500,67 +582,41 @@ def fetch_who_publications():
     """
     logger.info("Starting WHO scraper...")
 
-    # WHO pages to scrape
-    listing_pages = [
-        ("https://www.who.int/publications/i", "publication"),
-        ("https://www.who.int/news-room/releases", "news"),
-    ]
-
     all_publications = []
+    seen_ids = set()
 
-    for page_url, source_type in listing_pages:
-        soup = fetch_page(page_url)
-        if not soup:
+    # Fetch from WHO API
+    api_publications = fetch_publications_from_api()
+
+    for api_pub in api_publications:
+        # Parse API response
+        pub_data = parse_api_publication(api_pub)
+
+        # Skip duplicates
+        if pub_data['external_id'] in seen_ids:
+            continue
+        seen_ids.add(pub_data['external_id'])
+
+        # Skip if no title
+        if not pub_data.get('title'):
             continue
 
-        # Extract basic info from listing
-        publications = extract_publications_from_listing(soup, source_type)
-        logger.info(f"Found {len(publications)} items from {page_url}")
+        # Categorize by program areas and subtopics
+        program_areas, subtopics = categorize_publication(
+            pub_data.get('title', ''),
+            pub_data.get('abstract')
+        )
 
-        for pub_info in publications:
-            # Respect rate limits
-            time.sleep(Config.SCRAPER_DELAY_SECONDS)
+        # Detect geographic regions
+        regions = detect_regions(
+            pub_data.get('title', ''),
+            pub_data.get('abstract')
+        )
 
-            # Get full details from publication page
-            details = parse_publication_page(pub_info["url"])
-            if details:
-                # Merge basic info with details
-                pub_data = {**pub_info, **details}
-
-                # Ensure we have an external_id
-                if not pub_data.get("external_id"):
-                    pub_data["external_id"] = pub_data["url"].strip("/").split("/")[-1]
-
-                # Categorize by program areas and subtopics
-                program_areas, subtopics = categorize_publication(
-                    pub_data.get("title", ""),
-                    pub_data.get("abstract")
-                )
-
-                # Detect geographic regions
-                regions = detect_regions(
-                    pub_data.get("title", ""),
-                    pub_data.get("abstract")
-                )
-
-                pub_data["program_areas"] = program_areas
-                pub_data["subtopics"] = subtopics
-                pub_data["regions"] = regions
-                all_publications.append(pub_data)
-            else:
-                # Use basic info if detailed fetch failed
-                program_areas, subtopics = categorize_publication(
-                    pub_info.get("title", ""),
-                    pub_info.get("summary")
-                )
-                regions = detect_regions(
-                    pub_info.get("title", ""),
-                    pub_info.get("summary")
-                )
-                pub_info["program_areas"] = program_areas
-                pub_info["subtopics"] = subtopics
-                pub_info["regions"] = regions
-                all_publications.append(pub_info)
+        pub_data['program_areas'] = program_areas
+        pub_data['subtopics'] = subtopics
+        pub_data['regions'] = regions
+        all_publications.append(pub_data)
 
     logger.info(f"WHO scraper found {len(all_publications)} publications total")
     return all_publications
