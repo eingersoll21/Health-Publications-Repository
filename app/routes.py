@@ -3,6 +3,7 @@ Web routes for the CHAI Health Publications Tracker.
 
 This file defines all the website pages and handles user actions:
 - Home page
+- Browse/Search publications
 - User registration and login
 - Preferences management
 - Unsubscribe functionality
@@ -10,13 +11,19 @@ This file defines all the website pages and handles user actions:
 
 import re
 import secrets
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from datetime import datetime, timedelta
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import or_, and_, func
 
-from .models import db, User, UserProgramPreference, UserProgramPreferenceLocation, UserCountryWatch
+from .models import (
+    db, User, UserProgramPreference, UserProgramPreferenceLocation, UserCountryWatch,
+    Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion
+)
 from .config import (
     PROGRAM_AREAS, get_all_program_area_choices, get_all_program_areas_with_subtopics,
-    REGIONS_AND_COUNTRIES, get_all_region_choices, get_all_country_choices
+    REGIONS_AND_COUNTRIES, get_all_region_choices, get_all_country_choices,
+    get_program_area_name, get_region_name, get_subtopic_name
 )
 
 
@@ -51,12 +58,216 @@ def index():
     """
     Home page.
 
-    If logged in, redirect to preferences.
+    If logged in, redirect to browse page.
     Otherwise, show welcome page with login/register links.
     """
     if current_user.is_authenticated:
-        return redirect(url_for('main.preferences'))
+        return redirect(url_for('main.browse'))
     return render_template('index.html')
+
+
+# Date range presets for browse page
+DATE_RANGE_PRESETS = [
+    ('30', 'Last 30 days'),
+    ('90', 'Last 3 months'),
+    ('180', 'Last 6 months'),
+    ('365', 'Last 1 year'),
+    ('1095', 'Last 3 years'),
+    ('custom', 'Custom range')
+]
+
+# Results per page
+RESULTS_PER_PAGE = 20
+
+
+@main_bp.route('/browse')
+@login_required
+def browse():
+    """
+    Browse/Search publications page.
+
+    Allows users to explore the publication database with filters:
+    - Program area and subtopic
+    - Region and country
+    - Source (WHO/PubMed)
+    - Date range
+    - Text search
+    """
+    # Get filter parameters from query string
+    program = request.args.get('program', '')
+    subtopic = request.args.get('subtopic', '')
+    region = request.args.get('region', '')
+    country = request.args.get('country', '')
+    source = request.args.get('source', '')
+    date_range = request.args.get('date_range', '30')  # Default: last 30 days
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+
+    # Build base query
+    query = db.session.query(Publication)
+
+    # Apply text search filter (title or abstract)
+    if search:
+        search_term = f'%{search}%'
+        query = query.filter(
+            or_(
+                Publication.title.ilike(search_term),
+                Publication.abstract.ilike(search_term)
+            )
+        )
+
+    # Apply program area filter
+    if program:
+        pub_ids_with_program = db.session.query(PublicationProgramArea.publication_id).filter(
+            PublicationProgramArea.program_area_key == program
+        ).scalar_subquery()
+        query = query.filter(Publication.id.in_(pub_ids_with_program))
+
+    # Apply subtopic filter
+    if subtopic and program:
+        pub_ids_with_subtopic = db.session.query(PublicationSubtopic.publication_id).filter(
+            PublicationSubtopic.program_area_key == program,
+            PublicationSubtopic.subtopic_key == subtopic
+        ).scalar_subquery()
+        query = query.filter(Publication.id.in_(pub_ids_with_subtopic))
+
+    # Apply region filter
+    if region:
+        pub_ids_with_region = db.session.query(PublicationRegion.publication_id).filter(
+            PublicationRegion.region_key == region
+        ).scalar_subquery()
+        query = query.filter(Publication.id.in_(pub_ids_with_region))
+
+    # Apply country filter (search in matched_terms)
+    if country:
+        pub_ids_with_country = db.session.query(PublicationRegion.publication_id).filter(
+            PublicationRegion.matched_terms.ilike(f'%{country}%')
+        ).scalar_subquery()
+        query = query.filter(Publication.id.in_(pub_ids_with_country))
+
+    # Apply source filter
+    if source:
+        query = query.filter(Publication.source == source)
+
+    # Apply date range filter
+    if date_range == 'custom':
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, '%Y-%m-%d').date()
+                query = query.filter(Publication.publication_date >= from_date)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, '%Y-%m-%d').date()
+                query = query.filter(Publication.publication_date <= to_date)
+            except ValueError:
+                pass
+    elif date_range:
+        try:
+            days = int(date_range)
+            cutoff_date = datetime.utcnow().date() - timedelta(days=days)
+            query = query.filter(Publication.publication_date >= cutoff_date)
+        except ValueError:
+            pass
+
+    # Order by publication date (newest first)
+    query = query.order_by(Publication.publication_date.desc())
+
+    # Get total count before pagination
+    total_count = query.count()
+
+    # Paginate
+    pagination = query.paginate(page=page, per_page=RESULTS_PER_PAGE, error_out=False)
+    publications = pagination.items
+
+    # Format publications for display
+    formatted_pubs = []
+    for pub in publications:
+        # Get program areas
+        areas = PublicationProgramArea.query.filter_by(publication_id=pub.id).all()
+        program_areas = [get_program_area_name(a.program_area_key) for a in areas]
+
+        # Get subtopics
+        subtopics = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
+        subtopic_names = [get_subtopic_name(st.program_area_key, st.subtopic_key) for st in subtopics]
+
+        # Get regions
+        regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
+        region_names = [get_region_name(r.region_key) for r in regions]
+
+        # Truncate abstract
+        abstract_preview = pub.abstract[:200] + '...' if pub.abstract and len(pub.abstract) > 200 else pub.abstract
+
+        formatted_pubs.append({
+            'id': pub.id,
+            'title': pub.title,
+            'url': pub.url,
+            'source': pub.source,
+            'date': pub.publication_date,
+            'abstract': abstract_preview,
+            'program_areas': program_areas,
+            'subtopics': subtopic_names,
+            'regions': region_names,
+            'is_ahead_of_print': pub.is_ahead_of_print
+        })
+
+    # Get database date range for info message
+    earliest_pub = Publication.query.filter(Publication.publication_date.isnot(None)).order_by(Publication.publication_date.asc()).first()
+    latest_pub = Publication.query.filter(Publication.publication_date.isnot(None)).order_by(Publication.publication_date.desc()).first()
+    db_date_range = None
+    if earliest_pub and latest_pub and earliest_pub.publication_date and latest_pub.publication_date:
+        db_date_range = {
+            'earliest': earliest_pub.publication_date,
+            'latest': latest_pub.publication_date
+        }
+
+    # Get filter options
+    program_choices = get_all_program_area_choices()
+    program_areas_with_subtopics = get_all_program_areas_with_subtopics()
+    region_choices = get_all_region_choices()
+    country_choices = get_all_country_choices()
+    countries_by_region = get_countries_by_region()
+
+    return render_template(
+        'browse.html',
+        publications=formatted_pubs,
+        pagination=pagination,
+        total_count=total_count,
+        # Current filter values
+        current_program=program,
+        current_subtopic=subtopic,
+        current_region=region,
+        current_country=country,
+        current_source=source,
+        current_date_range=date_range,
+        current_date_from=date_from,
+        current_date_to=date_to,
+        current_search=search,
+        # Filter options
+        program_choices=program_choices,
+        program_areas_with_subtopics=program_areas_with_subtopics,
+        region_choices=region_choices,
+        country_choices=country_choices,
+        countries_by_region=countries_by_region,
+        date_range_presets=DATE_RANGE_PRESETS,
+        db_date_range=db_date_range
+    )
+
+
+@main_bp.route('/api/subtopics/<program_key>')
+@login_required
+def get_subtopics(program_key):
+    """API endpoint to get subtopics for a program area (for dynamic dropdown)."""
+    if program_key in PROGRAM_AREAS:
+        subtopics = PROGRAM_AREAS[program_key].get('subtopics', {})
+        return jsonify([
+            {'key': key, 'name': data['name']}
+            for key, data in subtopics.items()
+        ])
+    return jsonify([])
 
 
 @main_bp.route('/register', methods=['GET', 'POST'])

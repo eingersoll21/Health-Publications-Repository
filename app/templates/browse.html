@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Publications - CHAI Health Tracker{% endblock %}
+
+{% block content %}
+<div class="browse-page">
+    <h1>CHAI Health Publications Database</h1>
+
+    {% if db_date_range %}
+    <p class="db-info">
+        Database contains publications from {{ db_date_range.earliest.strftime('%B %d, %Y') }} to {{ db_date_range.latest.strftime('%B %d, %Y') }}.
+    </p>
+    {% endif %}
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <form method="GET" action="{{ url_for('main.browse') }}" id="filter-form">
+            <div class="filters-grid">
+                <!-- Search -->
+                <div class="filter-group filter-search">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" name="search" value="{{ current_search }}" placeholder="Search titles and abstracts...">
+                </div>
+
+                <!-- Program Area -->
+                <div class="filter-group">
+                    <label for="program">Program Area</label>
+                    <select id="program" name="program">
+                        <option value="">All Programs</option>
+                        {% for key, name in program_choices %}
+                        <option value="{{ key }}" {% if current_program == key %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Subtopic (dynamic based on program) -->
+                <div class="filter-group">
+                    <label for="subtopic">Subtopic</label>
+                    <select id="subtopic" name="subtopic">
+                        <option value="">All Subtopics</option>
+                        {% if current_program and current_program in program_areas_with_subtopics %}
+                            {% for subtopic in program_areas_with_subtopics[current_program].subtopics %}
+                            <option value="{{ subtopic.key }}" {% if current_subtopic == subtopic.key %}selected{% endif %}>{{ subtopic.name }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Region -->
+                <div class="filter-group">
+                    <label for="region">Region</label>
+                    <select id="region" name="region">
+                        <option value="">All Regions</option>
+                        {% for key, name in region_choices %}
+                        <option value="{{ key }}" {% if current_region == key %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Country -->
+                <div class="filter-group">
+                    <label for="country">Country</label>
+                    <select id="country" name="country">
+                        <option value="">All Countries</option>
+                        {% for country in country_choices %}
+                        <option value="{{ country }}" {% if current_country == country %}selected{% endif %}>{{ country }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Source -->
+                <div class="filter-group">
+                    <label>Source</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="source" value="" {% if not current_source %}checked{% endif %}> All
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="source" value="WHO" {% if current_source == 'WHO' %}checked{% endif %}> WHO
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="source" value="PubMed" {% if current_source == 'PubMed' %}checked{% endif %}> PubMed
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Date Range -->
+                <div class="filter-group">
+                    <label for="date_range">Date Range</label>
+                    <select id="date_range" name="date_range">
+                        {% for value, label in date_range_presets %}
+                        <option value="{{ value }}" {% if current_date_range == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Custom Date Range -->
+                <div class="filter-group custom-date-range" id="custom-date-container" style="{% if current_date_range != 'custom' %}display: none;{% endif %}">
+                    <label>Custom Range</label>
+                    <div class="date-inputs">
+                        <input type="date" id="date_from" name="date_from" value="{{ current_date_from }}" placeholder="From">
+                        <span>to</span>
+                        <input type="date" id="date_to" name="date_to" value="{{ current_date_to }}" placeholder="To">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="filter-buttons">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <a href="{{ url_for('main.browse') }}" class="btn btn-secondary">Clear Filters</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results-section">
+        <div class="results-header">
+            <p class="results-count">
+                {% if total_count > 0 %}
+                    {% set start_num = ((pagination.page - 1) * pagination.per_page) + 1 %}
+                    {% set end_num = pagination.page * pagination.per_page %}
+                    {% if end_num > total_count %}{% set end_num = total_count %}{% endif %}
+                    Showing {{ start_num }}-{{ end_num }} of {{ total_count }} publications
+                {% else %}
+                    No publications found matching your criteria
+                {% endif %}
+            </p>
+        </div>
+
+        {% if publications %}
+        <div class="publications-list">
+            {% for pub in publications %}
+            <div class="publication-card">
+                <div class="pub-header">
+                    <span class="pub-source source-{{ pub.source|lower }}">{{ pub.source }}</span>
+                    {% if pub.date %}
+                    <span class="pub-date">{{ pub.date.strftime('%B %Y') }}</span>
+                    {% endif %}
+                    {% if pub.is_ahead_of_print %}
+                    <span class="tag tag-ahead-of-print">Ahead of Print</span>
+                    {% endif %}
+                </div>
+
+                <h3 class="pub-title">
+                    <a href="{{ pub.url }}" target="_blank" rel="noopener noreferrer">{{ pub.title }}</a>
+                </h3>
+
+                <div class="pub-tags">
+                    {% for area in pub.program_areas %}
+                    <span class="tag tag-program">{{ area }}</span>
+                    {% endfor %}
+                    {% for subtopic in pub.subtopics %}
+                    <span class="tag tag-subtopic">{{ subtopic }}</span>
+                    {% endfor %}
+                    {% for region in pub.regions %}
+                    <span class="tag tag-region">{{ region }}</span>
+                    {% endfor %}
+                </div>
+
+                {% if pub.abstract %}
+                <p class="pub-abstract">{{ pub.abstract }}</p>
+                {% endif %}
+
+                <a href="{{ pub.url }}" target="_blank" rel="noopener noreferrer" class="read-more">Read more &rarr;</a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <nav class="pagination">
+            {% if pagination.has_prev %}
+            <a href="{{ url_for('main.browse', page=pagination.prev_num, program=current_program, subtopic=current_subtopic, region=current_region, country=current_country, source=current_source, date_range=current_date_range, date_from=current_date_from, date_to=current_date_to, search=current_search) }}" class="page-link">&laquo; Previous</a>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <span class="page-link current">{{ page_num }}</span>
+                    {% else %}
+                    <a href="{{ url_for('main.browse', page=page_num, program=current_program, subtopic=current_subtopic, region=current_region, country=current_country, source=current_source, date_range=current_date_range, date_from=current_date_from, date_to=current_date_to, search=current_search) }}" class="page-link">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="page-ellipsis">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <a href="{{ url_for('main.browse', page=pagination.next_num, program=current_program, subtopic=current_subtopic, region=current_region, country=current_country, source=current_source, date_range=current_date_range, date_from=current_date_from, date_to=current_date_to, search=current_search) }}" class="page-link">Next &raquo;</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="no-results">
+            <p>No publications found. Try adjusting your filters.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Store subtopics data for dynamic dropdown
+const programSubtopics = {{ program_areas_with_subtopics | tojson | safe }};
+const countriesByRegion = {{ countries_by_region | tojson | safe }};
+
+// Update subtopic dropdown when program changes
+document.getElementById('program').addEventListener('change', function() {
+    const programKey = this.value;
+    const subtopicSelect = document.getElementById('subtopic');
+
+    // Clear current options
+    subtopicSelect.innerHTML = '<option value="">All Subtopics</option>';
+
+    if (programKey && programSubtopics[programKey]) {
+        const subtopics = programSubtopics[programKey].subtopics || [];
+        subtopics.forEach(function(subtopic) {
+            const option = document.createElement('option');
+            option.value = subtopic.key;
+            option.textContent = subtopic.name;
+            subtopicSelect.appendChild(option);
+        });
+    }
+});
+
+// Update country dropdown when region changes (optional - filter countries by region)
+document.getElementById('region').addEventListener('change', function() {
+    const regionKey = this.value;
+    const countrySelect = document.getElementById('country');
+    const allCountries = {{ country_choices | tojson | safe }};
+
+    // Clear and rebuild
+    countrySelect.innerHTML = '<option value="">All Countries</option>';
+
+    let countriesToShow = allCountries;
+    if (regionKey && countriesByRegion[regionKey]) {
+        countriesToShow = countriesByRegion[regionKey];
+    }
+
+    countriesToShow.forEach(function(country) {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        countrySelect.appendChild(option);
+    });
+});
+
+// Show/hide custom date range inputs
+document.getElementById('date_range').addEventListener('change', function() {
+    const customContainer = document.getElementById('custom-date-container');
+    if (this.value === 'custom') {
+        customContainer.style.display = 'block';
+    } else {
+        customContainer.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}
