@@ -186,8 +186,10 @@ def preferences():
         if frequency not in [f[0] for f in FREQUENCY_OPTIONS]:
             frequency = 'weekly'
 
-        # Clear existing program preferences (cascade deletes locations)
-        UserProgramPreference.query.filter_by(user_id=current_user.id).delete()
+        # Clear existing program preferences (must delete individually to trigger cascade)
+        existing_prefs = UserProgramPreference.query.filter_by(user_id=current_user.id).all()
+        for pref in existing_prefs:
+            db.session.delete(pref)
 
         # Track which programs we've created preferences for
         created_prefs = {}  # {program_key: UserProgramPreference}
@@ -225,9 +227,10 @@ def preferences():
 
         # Now handle location filters for each program
         all_countries = get_all_country_choices()
+        added_locations = set()  # Track (pref_id, location_type, location_value) to prevent duplicates
         for program_key in PROGRAM_AREAS.keys():
             location_type = request.form.get(f'{program_key}__location_type', 'all')
-            locations = request.form.getlist(f'{program_key}__locations')
+            locations = list(set(request.form.getlist(f'{program_key}__locations')))  # Deduplicate
 
             if location_type != 'all' and locations:
                 # Find all preferences for this program
@@ -235,6 +238,9 @@ def preferences():
                     if pref.program_area_key == program_key:
                         # Add location filters
                         for loc_value in locations:
+                            loc_key = (pref.id, location_type, loc_value)
+                            if loc_key in added_locations:
+                                continue  # Skip duplicate
                             # Validate location value
                             if location_type == 'region' and loc_value in REGIONS_AND_COUNTRIES:
                                 loc = UserProgramPreferenceLocation(
@@ -243,6 +249,7 @@ def preferences():
                                     location_value=loc_value
                                 )
                                 db.session.add(loc)
+                                added_locations.add(loc_key)
                             elif location_type == 'country' and loc_value in all_countries:
                                 loc = UserProgramPreferenceLocation(
                                     program_preference_id=pref.id,
@@ -250,9 +257,12 @@ def preferences():
                                     location_value=loc_value
                                 )
                                 db.session.add(loc)
+                                added_locations.add(loc_key)
 
-        # Clear existing country watches
-        UserCountryWatch.query.filter_by(user_id=current_user.id).delete()
+        # Clear existing country watches (must delete individually to be consistent)
+        existing_watches = UserCountryWatch.query.filter_by(user_id=current_user.id).all()
+        for watch in existing_watches:
+            db.session.delete(watch)
 
         # Save new country watches - entire regions
         for region_key in selected_watch_regions:
