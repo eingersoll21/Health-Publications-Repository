@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CHAI Health Publications Tracker{% endblock %}</title>
+    <title>{% block title %}Global Health Publications Tracker{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="{{ url_for('main.index') }}" class="nav-brand">CHAI Health Tracker</a>
+            <a href="{{ url_for('main.index') }}" class="nav-brand">Health Publications Tracker</a>
             <div class="nav-links">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('main.browse') }}">Browse</a>
-                    <a href="{{ url_for('main.preferences') }}">Preferences</a>
+                    <a href="{{ url_for('main.home') }}">Home</a>
+                    <a href="{{ url_for('main.browse') }}">Publications</a>
+                    <a href="{{ url_for('main.preferences') }}">My Subscriptions</a>
+                    <a href="{{ url_for('main.suggestions') }}">Suggestions</a>
                     <a href="{{ url_for('main.logout') }}">Logout</a>
                 {% else %}
                     <a href="{{ url_for('main.login') }}">Login</a>
@@ -41,7 +43,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p>CHAI Health Publications Tracker</p>
+            <p>Global Health Publications Tracker</p>
         </div>
     </footer>
 

@@ -1,5 +1,5 @@
 """
-Database models for the CHAI Health Publications Tracker.
+Database models for the Global Health Publications Tracker.
 
 This file defines all database tables:
 - User: Registered users with their preferences
@@ -11,6 +11,8 @@ This file defines all database tables:
 - PublicationSubtopic: Links publications to specific subtopics within program areas
 - PublicationRegion: Links publications to detected geographic regions
 - DigestLog: Tracks which publications were sent to which users
+- ScraperLog: Tracks scraper runs for monitoring
+- UserSuggestion: User feedback and suggestions
 """
 
 from datetime import datetime
@@ -34,6 +36,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -44,6 +48,21 @@ class User(UserMixin, db.Model):
         nullable=False
     )  # Options: 'daily', 'weekly', 'biweekly', 'monthly'
     last_digest_sent = db.Column(db.DateTime, nullable=True)
+
+    # Digest timing preferences
+    preferred_day = db.Column(
+        db.String(20),
+        nullable=True
+    )  # For weekly/biweekly: 'monday'-'sunday'. For monthly: '1', '15'. For daily: NULL
+    preferred_time = db.Column(
+        db.Time,
+        nullable=True
+    )  # e.g., 08:00, 14:00. Defaults to 08:00 if not set
+    timezone = db.Column(
+        db.String(50),
+        default='UTC',
+        nullable=True
+    )  # e.g., 'America/New_York', 'Europe/London'
 
     # Relationships
     program_preferences = db.relationship(
@@ -60,6 +79,12 @@ class User(UserMixin, db.Model):
     )
     digest_logs = db.relationship(
         'DigestLog',
+        backref='user',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+    suggestions = db.relationship(
+        'UserSuggestion',
         backref='user',
         lazy='dynamic',
         cascade='all, delete-orphan'
@@ -124,7 +149,7 @@ class User(UserMixin, db.Model):
 
 class UserProgramPreference(db.Model):
     """
-    Links a user to a CHAI program area (and optionally specific subtopic) they're interested in.
+    Links a user to a health program area (and optionally specific subtopic) they're interested in.
 
     If subtopic_key is NULL, user wants ALL subtopics within that program area.
     If subtopic_key is set, user only wants that specific subtopic.
@@ -306,7 +331,7 @@ class Publication(db.Model):
 
 class PublicationProgramArea(db.Model):
     """
-    Links a publication to a relevant CHAI program area.
+    Links a publication to a relevant health program area.
 
     The relevance_score indicates how strongly the publication
     matches the program area (based on keyword matches).
@@ -437,3 +462,59 @@ class DigestLog(db.Model):
 
     def __repr__(self):
         return f'<DigestLog {self.user_id}:{self.publication_id}>'
+
+
+class ScraperLog(db.Model):
+    """
+    Tracks scraper runs for monitoring and display on home page.
+
+    Records when each scraper was run and how many publications
+    were found and saved.
+    """
+    __tablename__ = 'scraper_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    source = db.Column(db.String(20), nullable=False)  # 'WHO' or 'PubMed'
+    run_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    publications_found = db.Column(db.Integer, default=0)
+    publications_new = db.Column(db.Integer, default=0)
+
+    # Index for efficient lookups
+    __table_args__ = (
+        db.Index('idx_scraper_source_run', 'source', 'run_at'),
+    )
+
+    def __repr__(self):
+        return f'<ScraperLog {self.source}:{self.run_at}>'
+
+
+class UserSuggestion(db.Model):
+    """
+    User feedback and suggestions for improving the platform.
+
+    Allows users to suggest new data sources, request features,
+    report bugs, or provide other feedback.
+    """
+    __tablename__ = 'user_suggestions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    suggestion_type = db.Column(
+        db.String(50),
+        nullable=False
+    )  # 'new_data_source', 'feature_request', 'bug_report', 'other'
+    description = db.Column(db.Text, nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(
+        db.String(20),
+        default='pending',
+        nullable=False
+    )  # 'pending', 'reviewed', 'implemented'
+
+    def __repr__(self):
+        return f'<UserSuggestion {self.user_id}:{self.suggestion_type}>'

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Suggestions - Global Health Publications Tracker{% endblock %}
+
+{% block content %}
+<div class="suggestions-page">
+    <div class="page-header">
+        <h1>💡 Suggestions & Feedback</h1>
+        <p class="page-subtitle">Help us improve! Suggest new data sources or features.</p>
+    </div>
+
+    <!-- Suggestion Form -->
+    <div class="suggestion-form-card">
+        <form method="POST" class="suggestion-form">
+            <div class="form-group">
+                <label for="suggestion_type">Type of Feedback</label>
+                <select id="suggestion_type" name="suggestion_type" required>
+                    <option value="">Select a type...</option>
+                    {% for value, label in suggestion_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Your Suggestion</label>
+                <textarea id="description" name="description" rows="5" required
+                    placeholder="Tell us about your idea, feature request, or report an issue..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Submit Suggestion</button>
+        </form>
+    </div>
+
+    <!-- Past Suggestions -->
+    {% if user_suggestions %}
+    <div class="past-suggestions">
+        <h2>Your Past Suggestions</h2>
+        <div class="suggestions-list">
+            {% for suggestion in user_suggestions %}
+            <div class="suggestion-item">
+                <div class="suggestion-header">
+                    <span class="suggestion-date">{{ suggestion.submitted_at.strftime('%B %d, %Y') }}</span>
+                    <span class="suggestion-type type-{{ suggestion.suggestion_type }}">
+                        {% if suggestion.suggestion_type == 'new_data_source' %}
+                            New Data Source
+                        {% elif suggestion.suggestion_type == 'feature_request' %}
+                            Feature Request
+                        {% elif suggestion.suggestion_type == 'bug_report' %}
+                            Bug Report
+                        {% else %}
+                            Other
+                        {% endif %}
+                    </span>
+                    <span class="suggestion-status status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
+                </div>
+                <p class="suggestion-description">{{ suggestion.description }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="no-suggestions">
+        <p>You haven't submitted any suggestions yet. We'd love to hear your ideas!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

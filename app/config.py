@@ -1,8 +1,8 @@
 """
-Configuration settings for the CHAI Health Publications Tracker.
+Configuration settings for the Global Health Publications Tracker.
 
 This file contains all application settings including database location,
-email configuration, and CHAI program area definitions with keywords.
+email configuration, and program area definitions with keywords.
 """
 
 import os
@@ -28,7 +28,7 @@ class Config:
     # Use DATABASE_URL env var if set, otherwise use relative path
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
-        f"sqlite:///{BASE_DIR / 'data' / 'chai_tracker.db'}"
+        f"sqlite:///{BASE_DIR / 'data' / 'health_tracker.db'}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -44,7 +44,7 @@ class Config:
 
     # PubMed API settings
     PUBMED_EMAIL = os.getenv('PUBMED_EMAIL', '')
-    PUBMED_TOOL = 'CHAI-Health-Tracker'
+    PUBMED_TOOL = 'Health-Publications-Tracker'
 
     # Scraping settings
     SCRAPER_DELAY_SECONDS = 2  # Delay between requests to be respectful
@@ -56,7 +56,7 @@ class Config:
     MAX_PUBLICATIONS_PER_DIGEST = 10  # Max publications in one digest email
 
 
-# CHAI Program Areas with their keywords and subtopics for categorization
+# Program Areas with their keywords and subtopics for categorization
 # Each program area has a display name, category, keywords, and granular subtopics
 PROGRAM_AREAS = {
     # ============ INFECTIOUS DISEASES ============

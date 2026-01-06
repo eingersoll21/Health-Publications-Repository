@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Manual digest sender for the CHAI Health Publications Tracker.
+Manual digest sender for the Global Health Publications Tracker.
 
 Run this script to send email digests to all users who are due.
 
@@ -170,7 +170,7 @@ def send_digests(app):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Send email digests for CHAI Health Tracker"
+        description="Send email digests for Health Publications Tracker"
     )
     parser.add_argument(
         "--preview",
@@ -186,7 +186,7 @@ def main():
     args = parser.parse_args()
 
     print_separator()
-    print("CHAI Health Publications Tracker - Digest Sender")
+    print("Global Health Publications Tracker - Digest Sender")
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print_separator()
 

@@ -1,24 +1,26 @@
 """
-Web routes for the CHAI Health Publications Tracker.
+Web routes for the Global Health Publications Tracker.
 
 This file defines all the website pages and handles user actions:
-- Home page
+- Home/Dashboard page
 - Browse/Search publications
 - User registration and login
 - Preferences management
+- Suggestions/Feedback
 - Unsubscribe functionality
 """
 
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import or_, and_, func
 
 from .models import (
     db, User, UserProgramPreference, UserProgramPreferenceLocation, UserCountryWatch,
-    Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion
+    Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion,
+    DigestLog, ScraperLog, UserSuggestion
 )
 from .config import (
     PROGRAM_AREAS, get_all_program_area_choices, get_all_program_areas_with_subtopics,
@@ -56,14 +58,160 @@ def is_valid_email(email):
 @main_bp.route('/')
 def index():
     """
-    Home page.
+    Landing page.
 
-    If logged in, redirect to browse page.
+    If logged in, redirect to home dashboard.
     Otherwise, show welcome page with login/register links.
     """
     if current_user.is_authenticated:
-        return redirect(url_for('main.browse'))
+        return redirect(url_for('main.home'))
     return render_template('index.html')
+
+
+@main_bp.route('/home')
+@login_required
+def home():
+    """
+    Home dashboard page for logged-in users.
+
+    Shows subscription summary, new publications count, and database stats.
+    """
+    # Get user's subscription counts
+    program_subscription_count = current_user.program_preferences.count()
+    country_watch_count = current_user.country_watches.count()
+
+    # Count new publications since last digest
+    new_publications_count = 0
+    if current_user.last_digest_sent:
+        # Get publications matching user's subscriptions since last digest
+        user_program_keys = current_user.get_selected_program_keys()
+        if user_program_keys:
+            new_publications_count = Publication.query.join(
+                PublicationProgramArea
+            ).filter(
+                PublicationProgramArea.program_area_key.in_(user_program_keys),
+                Publication.scraped_at > current_user.last_digest_sent
+            ).distinct().count()
+
+    # Get database stats
+    total_publications = Publication.query.count()
+    who_count = Publication.query.filter_by(source='WHO').count()
+    pubmed_count = Publication.query.filter_by(source='PubMed').count()
+
+    # Get date range
+    earliest_pub = Publication.query.filter(
+        Publication.publication_date.isnot(None)
+    ).order_by(Publication.publication_date.asc()).first()
+    latest_pub = Publication.query.filter(
+        Publication.publication_date.isnot(None)
+    ).order_by(Publication.publication_date.desc()).first()
+
+    date_range = None
+    if earliest_pub and latest_pub:
+        date_range = {
+            'earliest': earliest_pub.publication_date,
+            'latest': latest_pub.publication_date
+        }
+
+    # Get last scraper run
+    last_scraper_run = ScraperLog.query.order_by(ScraperLog.run_at.desc()).first()
+
+    # Calculate next digest info
+    next_digest_info = _calculate_next_digest_info(current_user)
+
+    return render_template(
+        'home.html',
+        program_subscription_count=program_subscription_count,
+        country_watch_count=country_watch_count,
+        new_publications_count=new_publications_count,
+        total_publications=total_publications,
+        who_count=who_count,
+        pubmed_count=pubmed_count,
+        date_range=date_range,
+        last_scraper_run=last_scraper_run,
+        next_digest_info=next_digest_info
+    )
+
+
+def _calculate_next_digest_info(user):
+    """
+    Calculate when the user's next digest will be sent.
+
+    Returns dict with: day_name, date_str, time_str, timezone_str
+    """
+    from datetime import datetime
+    import calendar
+
+    frequency = user.digest_frequency
+    preferred_day = user.preferred_day
+    preferred_time = user.preferred_time or time(8, 0)
+    timezone_str = user.timezone or 'UTC'
+
+    # Format the time
+    hour = preferred_time.hour
+    am_pm = 'AM' if hour < 12 else 'PM'
+    display_hour = hour if hour <= 12 else hour - 12
+    if display_hour == 0:
+        display_hour = 12
+    time_str = f"{display_hour}:00 {am_pm}"
+
+    # Get timezone display name
+    timezone_display = _get_timezone_display_name(timezone_str)
+
+    if frequency == 'daily':
+        return {
+            'frequency': 'Daily',
+            'schedule_text': f"Every day at {time_str}",
+            'timezone': timezone_display
+        }
+    elif frequency == 'weekly':
+        day_name = (preferred_day or 'monday').capitalize()
+        return {
+            'frequency': 'Weekly',
+            'schedule_text': f"Every {day_name} at {time_str}",
+            'timezone': timezone_display
+        }
+    elif frequency == 'biweekly':
+        day_name = (preferred_day or 'monday').capitalize()
+        return {
+            'frequency': 'Biweekly',
+            'schedule_text': f"Every other {day_name} at {time_str}",
+            'timezone': timezone_display
+        }
+    elif frequency == 'monthly':
+        day_num = preferred_day or '1'
+        day_suffix = 'st' if day_num == '1' else 'th'
+        return {
+            'frequency': 'Monthly',
+            'schedule_text': f"On the {day_num}{day_suffix} at {time_str}",
+            'timezone': timezone_display
+        }
+
+    return None
+
+
+def _get_timezone_display_name(tz_str):
+    """Get a friendly display name for a timezone."""
+    tz_names = {
+        'UTC': 'UTC',
+        'America/New_York': 'Eastern Time',
+        'America/Chicago': 'Central Time',
+        'America/Denver': 'Mountain Time',
+        'America/Los_Angeles': 'Pacific Time',
+        'America/Sao_Paulo': 'Brasilia Time',
+        'Europe/London': 'London',
+        'Europe/Paris': 'Paris',
+        'Europe/Berlin': 'Berlin',
+        'Africa/Johannesburg': 'Johannesburg',
+        'Africa/Nairobi': 'Nairobi',
+        'Asia/Dubai': 'Dubai',
+        'Asia/Kolkata': 'India',
+        'Asia/Bangkok': 'Bangkok',
+        'Asia/Singapore': 'Singapore',
+        'Asia/Tokyo': 'Tokyo',
+        'Australia/Sydney': 'Sydney',
+    }
+    return tz_names.get(tz_str, tz_str)
 
 
 # Date range presets for browse page
@@ -282,12 +430,17 @@ def register():
         return redirect(url_for('main.preferences'))
 
     if request.method == 'POST':
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
 
         # Validation
         errors = []
+
+        if not first_name:
+            errors.append('First name is required.')
 
         if not email:
             errors.append('Email is required.')
@@ -309,17 +462,26 @@ def register():
         if errors:
             for error in errors:
                 flash(error, 'error')
-            return render_template('register.html', email=email)
+            return render_template('register.html', email=email, first_name=first_name, last_name=last_name)
 
         # Create new user
-        user = User(email=email)
+        user = User(email=email, first_name=first_name, last_name=last_name or None)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
 
+        # Send welcome email (don't block registration if email fails)
+        try:
+            from app.services.email_service import send_welcome_email
+            send_welcome_email(user)
+        except Exception as e:
+            # Log error but don't fail registration
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send welcome email: {e}")
+
         # Log them in
         login_user(user)
-        flash('Account created successfully! Please select your program areas.', 'success')
+        flash('Account created successfully! Please set up your subscriptions.', 'success')
         return redirect(url_for('main.preferences'))
 
     return render_template('register.html')
@@ -354,12 +516,69 @@ def login():
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
-            return redirect(url_for('main.browse'))
+            return redirect(url_for('main.home'))
         else:
             flash('Invalid email or password.', 'error')
             return render_template('login.html', email=email)
 
     return render_template('login.html')
+
+
+@main_bp.route('/suggestions', methods=['GET', 'POST'])
+@login_required
+def suggestions():
+    """
+    Suggestions and feedback page.
+
+    GET: Show suggestion form and user's past suggestions
+    POST: Submit a new suggestion
+    """
+    # Define suggestion types
+    suggestion_types = [
+        ('new_data_source', 'Suggest a new data source'),
+        ('feature_request', 'Request a feature'),
+        ('bug_report', 'Report a bug'),
+        ('other', 'Other feedback')
+    ]
+
+    if request.method == 'POST':
+        suggestion_type = request.form.get('suggestion_type', '').strip()
+        description = request.form.get('description', '').strip()
+
+        # Validation
+        errors = []
+        if not suggestion_type:
+            errors.append('Please select a suggestion type.')
+        if not description:
+            errors.append('Please enter your suggestion.')
+        elif len(description) < 10:
+            errors.append('Please provide more detail (at least 10 characters).')
+
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+        else:
+            # Save suggestion
+            suggestion = UserSuggestion(
+                user_id=current_user.id,
+                suggestion_type=suggestion_type,
+                description=description
+            )
+            db.session.add(suggestion)
+            db.session.commit()
+            flash('Thank you for your feedback! We appreciate your input.', 'success')
+            return redirect(url_for('main.suggestions'))
+
+    # Get user's past suggestions
+    user_suggestions = UserSuggestion.query.filter_by(
+        user_id=current_user.id
+    ).order_by(UserSuggestion.submitted_at.desc()).all()
+
+    return render_template(
+        'suggestions.html',
+        suggestion_types=suggestion_types,
+        user_suggestions=user_suggestions
+    )
 
 
 @main_bp.route('/logout')
@@ -396,6 +615,31 @@ def preferences():
         frequency = request.form.get('frequency', 'weekly')
         if frequency not in [f[0] for f in FREQUENCY_OPTIONS]:
             frequency = 'weekly'
+
+        # ========== Delivery Timing ==========
+        preferred_day = request.form.get('preferred_day', '')
+        preferred_time_str = request.form.get('preferred_time', '08:00')
+        timezone = request.form.get('timezone', 'UTC')
+
+        # Parse preferred time
+        preferred_time = None
+        if preferred_time_str:
+            try:
+                hours, minutes = map(int, preferred_time_str.split(':'))
+                preferred_time = time(hours, minutes)
+            except (ValueError, AttributeError):
+                preferred_time = time(8, 0)  # Default to 8:00 AM
+
+        # Validate preferred_day based on frequency
+        if frequency == 'daily':
+            preferred_day = None
+        elif frequency in ('weekly', 'biweekly'):
+            valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+            if preferred_day not in valid_days:
+                preferred_day = 'monday'
+        elif frequency == 'monthly':
+            if preferred_day not in ('1', '15'):
+                preferred_day = '1'
 
         # Clear existing program preferences (must delete individually to trigger cascade)
         existing_prefs = UserProgramPreference.query.filter_by(user_id=current_user.id).all()
@@ -498,6 +742,9 @@ def preferences():
 
         # Update user settings
         current_user.digest_frequency = frequency
+        current_user.preferred_day = preferred_day
+        current_user.preferred_time = preferred_time
+        current_user.timezone = timezone
         db.session.commit()
 
         flash('Preferences saved successfully!', 'success')
@@ -520,6 +767,9 @@ def preferences():
     selected_watch_regions = [w['region_key'] for w in user_country_watches if w['region_key'] and not w['country_name']]
     selected_watch_countries = [w['country_name'] for w in user_country_watches if w['country_name']]
 
+    # Get current timing preferences
+    current_preferred_time = current_user.preferred_time.strftime('%H:%M') if current_user.preferred_time else '08:00'
+
     return render_template(
         'preferences.html',
         program_choices=program_choices,
@@ -528,6 +778,9 @@ def preferences():
         countries_by_region=countries_by_region,
         frequency_options=FREQUENCY_OPTIONS,
         current_frequency=current_user.digest_frequency,
+        current_preferred_day=current_user.preferred_day or '',
+        current_preferred_time=current_preferred_time,
+        current_timezone=current_user.timezone or 'UTC',
         program_areas_with_subtopics=program_areas_with_subtopics,
         user_program_prefs=user_program_prefs,
         selected_watch_regions=selected_watch_regions,

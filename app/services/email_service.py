@@ -1,8 +1,9 @@
 """
-Email Service for the CHAI Health Publications Tracker.
+Email Service for the Global Health Publications Tracker.
 
 This module handles sending emails via SMTP, including:
 - HTML email formatting
+- Welcome emails for new users
 - SMTP connection management
 - Error handling and logging
 """
@@ -12,6 +13,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from flask import render_template
 from app.config import Config
 
 # Set up logging
@@ -124,4 +126,96 @@ def test_email_connection():
 
     except Exception as e:
         logger.error(f"SMTP connection test failed: {e}")
+        return False
+
+
+def send_welcome_email(user, base_url=None):
+    """
+    Send a welcome email to a newly registered user.
+
+    Args:
+        user: User object with email and first_name
+        base_url: Base URL for links. Defaults to Config.BASE_URL.
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    if base_url is None:
+        base_url = Config.BASE_URL
+
+    try:
+        # Import here to avoid circular imports
+        from app.routes import generate_unsubscribe_token
+
+        # Generate URLs
+        unsubscribe_token = generate_unsubscribe_token(user)
+        unsubscribe_url = f"{base_url}/unsubscribe/{unsubscribe_token}"
+        preferences_url = f"{base_url}/preferences"
+        browse_url = f"{base_url}/browse"
+        suggestions_url = f"{base_url}/suggestions"
+
+        # Create context for template
+        context = {
+            'user_first_name': user.first_name,
+            'unsubscribe_url': unsubscribe_url,
+            'preferences_url': preferences_url,
+            'browse_url': browse_url,
+            'suggestions_url': suggestions_url,
+        }
+
+        # Render HTML template
+        from flask import current_app
+        with current_app.app_context():
+            html_content = render_template('email_welcome.html', **context)
+
+        # Create plain text version
+        text_content = f"""
+Welcome to Global Health Publications Tracker!
+
+Hi {user.first_name},
+
+Your account has been created. Here's what you can do:
+
+SET UP YOUR PERSONALIZED DIGESTS
+Subscribe to health topics and countries you care about.
+{preferences_url}
+
+BROWSE THE DATABASE
+Search our database of WHO publications and PubMed research.
+{browse_url}
+
+ADJUST ANYTIME
+Update your preferences or change your delivery schedule.
+{preferences_url}
+
+SUGGESTIONS WELCOME
+Have ideas for new data sources or features?
+{suggestions_url}
+
+Happy reading!
+Global Health Publications Tracker
+
+---
+Unsubscribe: {unsubscribe_url}
+Update Preferences: {preferences_url}
+"""
+
+        # Send the email
+        subject = "Welcome to Global Health Publications Tracker!"
+        success = send_email(
+            to_email=user.email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content
+        )
+
+        if success:
+            logger.info(f"Welcome email sent to {user.email}")
+        else:
+            logger.error(f"Failed to send welcome email to {user.email}")
+
+        return success
+
+    except Exception as e:
+        logger.error(f"Error sending welcome email to {user.email}: {e}")
         return False

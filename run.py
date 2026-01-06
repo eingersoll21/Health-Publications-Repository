@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main entry point for the CHAI Health Publications Tracker.
+Main entry point for the Global Health Publications Tracker.
 
 Usage:
     python run.py                    # Start website only
@@ -131,7 +131,7 @@ def setup_scheduler():
 def main():
     """Main entry point with command-line argument handling."""
     parser = argparse.ArgumentParser(
-        description="CHAI Health Publications Tracker"
+        description="Global Health Publications Tracker"
     )
     parser.add_argument(
         "--with-scheduler",
@@ -164,7 +164,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("CHAI Health Publications Tracker")
+    print("Global Health Publications Tracker")
     print("=" * 60)
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Open http://{args.host}:{args.port} in your browser")

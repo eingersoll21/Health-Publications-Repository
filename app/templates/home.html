@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Global Health Publications Tracker{% endblock %}
+
+{% block content %}
+<div class="home-page">
+    <div class="welcome-header">
+        <h1>Welcome back, {{ current_user.first_name }}!</h1>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- Subscription Summary Card -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-icon">📊</span>
+                <h2>Your Subscription Summary</h2>
+            </div>
+            <div class="card-content">
+                <div class="stat-row">
+                    <span class="stat-label">Program Subscriptions:</span>
+                    <span class="stat-value">{{ program_subscription_count }} topic{{ 's' if program_subscription_count != 1 else '' }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Country Watch:</span>
+                    <span class="stat-value">{{ country_watch_count }} countr{{ 'ies' if country_watch_count != 1 else 'y' }}/region{{ 's' if country_watch_count != 1 else '' }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Digest Frequency:</span>
+                    <span class="stat-value">{{ current_user.digest_frequency|capitalize }}</span>
+                </div>
+                {% if next_digest_info %}
+                <div class="stat-row next-digest">
+                    <span class="stat-label">Next Digest:</span>
+                    <span class="stat-value">{{ next_digest_info.schedule_text }} ({{ next_digest_info.timezone }})</span>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-action">
+                <a href="{{ url_for('main.preferences') }}" class="btn btn-primary">Edit My Subscriptions</a>
+            </div>
+        </div>
+
+        <!-- Publication Updates Card -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-icon">📬</span>
+                <h2>Publication Updates</h2>
+            </div>
+            <div class="card-content">
+                {% if current_user.last_digest_sent %}
+                <p class="update-message">
+                    <strong>{{ new_publications_count }}</strong> new publication{{ 's' if new_publications_count != 1 else '' }}
+                    match{{ '' if new_publications_count != 1 else 'es' }} your subscriptions
+                    since your last digest on <strong>{{ current_user.last_digest_sent.strftime('%B %d, %Y') }}</strong>.
+                </p>
+                {% else %}
+                <p class="update-message">
+                    You haven't received a digest yet. Set up your subscriptions to start receiving personalized publication updates!
+                </p>
+                {% endif %}
+            </div>
+            <div class="card-action">
+                <a href="{{ url_for('main.browse') }}" class="btn btn-primary">Browse Publications</a>
+            </div>
+        </div>
+
+        <!-- Database Stats Card -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-icon">🗄️</span>
+                <h2>Database Stats</h2>
+            </div>
+            <div class="card-content">
+                <div class="stat-row">
+                    <span class="stat-label">Total Publications:</span>
+                    <span class="stat-value">{{ total_publications|default(0) }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Sources:</span>
+                    <span class="stat-value">WHO ({{ who_count }}), PubMed ({{ pubmed_count }})</span>
+                </div>
+                {% if date_range %}
+                <div class="stat-row">
+                    <span class="stat-label">Date Range:</span>
+                    <span class="stat-value">{{ date_range.earliest.strftime('%b %Y') }} - {{ date_range.latest.strftime('%b %Y') }}</span>
+                </div>
+                {% endif %}
+                {% if last_scraper_run %}
+                <div class="stat-row">
+                    <span class="stat-label">Last Updated:</span>
+                    <span class="stat-value">{{ last_scraper_run.run_at.strftime('%B %d, %Y at %H:%M') }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <div class="about-section">
+        <div class="card-header">
+            <span class="card-icon">💡</span>
+            <h2>About This Tool</h2>
+        </div>
+        <p>
+            This tool aggregates health publications from WHO and PubMed to help global health
+            program teams stay current on research and guidance relevant to their work. Set up
+            your subscriptions to receive personalized email digests.
+        </p>
+        <div class="about-action">
+            <a href="{{ url_for('main.suggestions') }}" class="btn btn-secondary">Have a suggestion? Tell us how to improve</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

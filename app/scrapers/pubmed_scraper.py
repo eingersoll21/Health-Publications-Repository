@@ -1,8 +1,8 @@
 """
-PubMed Scraper for the CHAI Health Publications Tracker.
+PubMed Scraper for the Global Health Publications Tracker.
 
 This module collects research papers from PubMed using the official NCBI API
-via Biopython's Entrez module. It searches for papers matching CHAI program
+via Biopython's Entrez module. It searches for papers matching health program
 area keywords and saves relevant publications to the database.
 
 NCBI Usage Guidelines:
@@ -17,7 +17,7 @@ import re
 from datetime import datetime, timedelta, date
 from Bio import Entrez
 
-from app.models import db, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion
+from app.models import db, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion, ScraperLog
 from app.config import Config, PROGRAM_AREAS, REGIONS_AND_COUNTRIES
 
 # Set up logging
@@ -648,6 +648,15 @@ def run_pubmed_scraper():
             "skipped": skipped,
             "status": "success"
         }
+
+        # Log the scraper run
+        scraper_log = ScraperLog(
+            source='PubMed',
+            publications_found=len(publications),
+            publications_new=saved
+        )
+        db.session.add(scraper_log)
+        db.session.commit()
 
         logger.info(f"PubMed scraper completed: {saved} saved, {skipped} skipped")
         return results

@@ -1,8 +1,8 @@
 """
-WHO Publications Scraper for the CHAI Health Publications Tracker.
+WHO Publications Scraper for the Global Health Publications Tracker.
 
 This module collects publications from the World Health Organization API,
-extracts metadata, categorizes them by CHAI program areas, and saves them
+extracts metadata, categorizes them by health program areas, and saves them
 to the database.
 
 Uses the WHO Publications API for reliable data access.
@@ -16,7 +16,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from app.models import db, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion
+from app.models import db, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion, ScraperLog
 from app.config import Config, PROGRAM_AREAS, REGIONS_AND_COUNTRIES
 
 # Set up logging
@@ -672,6 +672,7 @@ def run_who_scraper():
     Run the complete WHO scraping process.
 
     Fetches publications, filters by relevance, and saves to database.
+    Logs the run to ScraperLog for monitoring.
 
     Returns:
         Dictionary with scraping results
@@ -686,6 +687,15 @@ def run_who_scraper():
 
         # Save to database
         saved, skipped = save_publications(publications)
+
+        # Log the scraper run
+        scraper_log = ScraperLog(
+            source='WHO',
+            publications_found=len(publications),
+            publications_new=saved
+        )
+        db.session.add(scraper_log)
+        db.session.commit()
 
         # Compile results
         results = {

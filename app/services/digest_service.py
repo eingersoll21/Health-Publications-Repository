@@ -1,5 +1,5 @@
 """
-Digest Service for the CHAI Health Publications Tracker.
+Digest Service for the Global Health Publications Tracker.
 
 This module handles creating and sending email digests:
 - Finding relevant publications for each user based on two subscription types:
@@ -14,8 +14,14 @@ This module handles creating and sending email digests:
 
 import logging
 import uuid
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from flask import render_template, url_for
+
+try:
+    import pytz
+    HAS_PYTZ = True
+except ImportError:
+    HAS_PYTZ = False
 
 from app.models import db, User, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion, DigestLog
 from app.config import (
@@ -894,6 +900,7 @@ def create_digest_content(user, new_publications, icymi_publications, base_url=N
     # Create context for template
     context = {
         'user': user,
+        'user_first_name': user.first_name,
         # Separated new publications
         'new_program_pubs': new_program_pubs_formatted,
         'new_country_watch_pubs': new_country_watch_pubs_formatted,
@@ -936,9 +943,9 @@ def create_digest_content(user, new_publications, icymi_publications, base_url=N
 
     # Create subject line
     if len(new_publications) > 0:
-        subject = f"CHAI Health Digest - {len(new_publications)} New Publication{'s' if len(new_publications) != 1 else ''}"
+        subject = f"Health Publications Digest - {len(new_publications)} New Publication{'s' if len(new_publications) != 1 else ''}"
     else:
-        subject = "CHAI Health Digest - In Case You Missed It"
+        subject = "Health Publications Digest - In Case You Missed It"
 
     return {
         'html': html_content,
@@ -987,7 +994,7 @@ def create_plain_text_digest(context):
         return pub_lines
 
     lines = [
-        "CHAI Health Publications Digest",
+        "Global Health Publications Digest",
         "=" * 40,
         f"Date: {context['end_date']}",
         "",
@@ -1267,12 +1274,17 @@ def send_digest_to_user(user, base_url=None):
 
 def get_users_due_for_digest():
     """
-    Find all active users who are due for a digest based on their frequency setting.
+    Find all active users who are due for a digest based on their frequency setting
+    and preferred delivery timing.
+
+    Checks:
+    1. Has the user's frequency interval passed since last digest?
+    2. Does the current time match the user's preferred day/time/timezone?
 
     Returns:
         List of User objects
     """
-    now = datetime.utcnow()
+    now_utc = datetime.utcnow()
     users_due = []
 
     # Get all active users
@@ -1285,13 +1297,17 @@ def get_users_due_for_digest():
         if not user.has_subscriptions():
             continue
 
+        # Check if user's preferred delivery time matches current time
+        if not _is_user_delivery_time(user, now_utc):
+            continue
+
         # If never sent a digest, they're due
         if user.last_digest_sent is None:
             users_due.append(user)
             continue
 
         # Calculate if due based on frequency
-        days_since_last = (now - user.last_digest_sent).days
+        days_since_last = (now_utc - user.last_digest_sent).days
 
         frequency_days = {
             'daily': 1,
@@ -1307,6 +1323,68 @@ def get_users_due_for_digest():
 
     logger.info(f"Found {len(users_due)} users due for digest")
     return users_due
+
+
+def _is_user_delivery_time(user, now_utc):
+    """
+    Check if the current time matches the user's preferred delivery timing.
+
+    Args:
+        user: User object with preferred_day, preferred_time, timezone
+        now_utc: Current UTC datetime
+
+    Returns:
+        True if it's time to deliver, False otherwise
+    """
+    # Get user's timezone or default to UTC
+    user_timezone_str = user.timezone or 'UTC'
+
+    # Convert current UTC time to user's timezone
+    if HAS_PYTZ:
+        try:
+            user_tz = pytz.timezone(user_timezone_str)
+            now_user = now_utc.replace(tzinfo=pytz.UTC).astimezone(user_tz)
+        except Exception:
+            # If timezone is invalid, use UTC
+            now_user = now_utc
+    else:
+        # If pytz not available, just use UTC
+        now_user = now_utc
+
+    # Get user's preferred time (default to 8:00 AM)
+    preferred_time = user.preferred_time or time(8, 0)
+
+    # Check if current hour matches preferred hour (within 1 hour window)
+    if now_user.hour != preferred_time.hour:
+        return False
+
+    # Check day based on frequency
+    frequency = user.digest_frequency
+    preferred_day = user.preferred_day
+
+    if frequency == 'daily':
+        # Daily digests don't need day check
+        return True
+
+    elif frequency in ('weekly', 'biweekly'):
+        # Check if today is the preferred day of week
+        day_map = {
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+            'friday': 4, 'saturday': 5, 'sunday': 6
+        }
+        preferred_weekday = day_map.get(preferred_day, 0)  # Default to Monday
+        if now_user.weekday() != preferred_weekday:
+            return False
+        return True
+
+    elif frequency == 'monthly':
+        # Check if today is the preferred day of month (1st or 15th)
+        preferred_day_num = int(preferred_day) if preferred_day else 1
+        if now_user.day != preferred_day_num:
+            return False
+        return True
+
+    return True
 
 
 def send_all_pending_digests(base_url=None):
