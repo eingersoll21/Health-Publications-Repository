@@ -13,10 +13,10 @@ import secrets
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 
-from .models import db, User, UserProgramPreference, UserRegionPreference
+from .models import db, User, UserProgramPreference, UserCountryWatch
 from .config import (
     PROGRAM_AREAS, get_all_program_area_choices, get_all_program_areas_with_subtopics,
-    REGIONS_AND_COUNTRIES, get_all_region_choices, FILTER_MODES
+    REGIONS_AND_COUNTRIES, get_all_region_choices, get_all_country_choices
 )
 
 # Create a blueprint for organizing routes
@@ -155,25 +155,33 @@ def logout():
 @login_required
 def preferences():
     """
-    User preferences page.
+    User preferences page with two subscription types:
 
-    GET: Show current preferences with checkboxes for program areas and regions
+    1. Program Subscriptions: Subscribe to health topics (with optional region filter)
+    2. Country Watch: Get ALL publications about specific countries/regions
+
+    GET: Show current preferences
     POST: Save updated preferences
     """
     if request.method == 'POST':
-        # Get selected program areas and subtopics
+        # ========== Section 1: Program Subscriptions ==========
         # Format: "program_key" for all subtopics, "program_key__subtopic_key" for specific subtopic
         selected_programs = request.form.getlist('programs')
 
-        # Get selected regions
-        selected_regions = request.form.getlist('regions')
+        # Region filter for program subscriptions (optional)
+        program_region_filter = request.form.get('program_region_filter', '')
+        if program_region_filter and program_region_filter not in REGIONS_AND_COUNTRIES:
+            program_region_filter = None
+        elif program_region_filter == '':
+            program_region_filter = None
 
-        # Get filter mode
-        filter_mode = request.form.get('filter_mode', 'program_only')
-        if filter_mode not in FILTER_MODES:
-            filter_mode = 'program_only'
+        # ========== Section 2: Country Watch ==========
+        # Entire regions
+        selected_watch_regions = request.form.getlist('watch_regions')
+        # Specific countries
+        selected_watch_countries = request.form.getlist('watch_countries')
 
-        # Get digest frequency
+        # ========== Digest Settings ==========
         frequency = request.form.get('frequency', 'weekly')
         if frequency not in [f[0] for f in FREQUENCY_OPTIONS]:
             frequency = 'weekly'
@@ -181,7 +189,7 @@ def preferences():
         # Clear existing program preferences
         UserProgramPreference.query.filter_by(user_id=current_user.id).delete()
 
-        # Save new program preferences with subtopic support
+        # Save new program preferences with subtopic and region filter support
         for selection in selected_programs:
             if '__' in selection:
                 # Specific subtopic selected: "program_key__subtopic_key"
@@ -195,7 +203,8 @@ def preferences():
                         pref = UserProgramPreference(
                             user_id=current_user.id,
                             program_area_key=program_key,
-                            subtopic_key=subtopic_key
+                            subtopic_key=subtopic_key,
+                            region_key=program_region_filter
                         )
                         db.session.add(pref)
             else:
@@ -205,54 +214,75 @@ def preferences():
                     pref = UserProgramPreference(
                         user_id=current_user.id,
                         program_area_key=program_key,
-                        subtopic_key=None  # NULL means all subtopics
+                        subtopic_key=None,  # NULL means all subtopics
+                        region_key=program_region_filter
                     )
                     db.session.add(pref)
 
-        # Clear existing region preferences
-        UserRegionPreference.query.filter_by(user_id=current_user.id).delete()
+        # Clear existing country watches
+        UserCountryWatch.query.filter_by(user_id=current_user.id).delete()
 
-        # Save new region preferences
-        for region_key in selected_regions:
-            if region_key in REGIONS_AND_COUNTRIES:
-                pref = UserRegionPreference(
+        # Save new country watches - entire regions
+        for region_key in selected_watch_regions:
+            if region_key in REGIONS_AND_COUNTRIES and region_key != 'global':
+                watch = UserCountryWatch(
                     user_id=current_user.id,
-                    region_key=region_key
+                    region_key=region_key,
+                    country_name=None  # NULL means entire region
                 )
-                db.session.add(pref)
+                db.session.add(watch)
+
+        # Save new country watches - specific countries
+        all_countries = get_all_country_choices()
+        for country_name in selected_watch_countries:
+            if country_name in all_countries:
+                watch = UserCountryWatch(
+                    user_id=current_user.id,
+                    region_key=None,  # Could optionally set the region
+                    country_name=country_name
+                )
+                db.session.add(watch)
 
         # Update user settings
         current_user.digest_frequency = frequency
-        current_user.filter_mode = filter_mode
         db.session.commit()
 
         flash('Preferences saved successfully!', 'success')
         return redirect(url_for('main.preferences'))
 
     # GET request - show current preferences
-    selected_program_keys = current_user.get_selected_program_keys()
-    selected_region_keys = current_user.get_selected_region_keys()
     program_choices = get_all_program_area_choices()
     region_choices = get_all_region_choices()
+    country_choices = get_all_country_choices()
 
     # Get program areas with subtopics organized by category
     program_areas_with_subtopics = get_all_program_areas_with_subtopics()
 
-    # Get user's detailed preferences (which subtopics are selected)
+    # Get user's detailed preferences (which subtopics and region filters are selected)
     user_program_prefs = current_user.get_program_preferences_detail()
+
+    # Extract the region filter (assume same across all program prefs for now)
+    current_program_region_filter = None
+    if user_program_prefs:
+        current_program_region_filter = user_program_prefs[0].get('region_key')
+
+    # Get user's country watches
+    user_country_watches = current_user.get_country_watches()
+    selected_watch_regions = [w['region_key'] for w in user_country_watches if w['region_key'] and not w['country_name']]
+    selected_watch_countries = [w['country_name'] for w in user_country_watches if w['country_name']]
 
     return render_template(
         'preferences.html',
         program_choices=program_choices,
-        selected_program_keys=selected_program_keys,
         region_choices=region_choices,
-        selected_region_keys=selected_region_keys,
-        filter_modes=FILTER_MODES,
-        current_filter_mode=current_user.filter_mode,
+        country_choices=country_choices,
         frequency_options=FREQUENCY_OPTIONS,
         current_frequency=current_user.digest_frequency,
         program_areas_with_subtopics=program_areas_with_subtopics,
-        user_program_prefs=user_program_prefs
+        user_program_prefs=user_program_prefs,
+        current_program_region_filter=current_program_region_filter,
+        selected_watch_regions=selected_watch_regions,
+        selected_watch_countries=selected_watch_countries
     )
 
 

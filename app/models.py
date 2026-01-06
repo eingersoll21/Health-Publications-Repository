@@ -3,8 +3,8 @@ Database models for the CHAI Health Publications Tracker.
 
 This file defines all database tables:
 - User: Registered users with their preferences
-- UserProgramPreference: Links users to their chosen health programs (with optional subtopics)
-- UserRegionPreference: Links users to their chosen geographic regions
+- UserProgramPreference: Links users to health programs (with optional subtopics and region filter)
+- UserCountryWatch: Links users to countries/regions they want ALL publications for
 - Publication: Publications from WHO and PubMed
 - PublicationProgramArea: Links publications to relevant program areas
 - PublicationSubtopic: Links publications to specific subtopics within program areas
@@ -44,14 +44,6 @@ class User(UserMixin, db.Model):
     )  # Options: 'daily', 'weekly', 'biweekly', 'monthly'
     last_digest_sent = db.Column(db.DateTime, nullable=True)
 
-    # Filter mode: how to combine program and region filters
-    # Options: 'program_only', 'region_only', 'program_and_region'
-    filter_mode = db.Column(
-        db.String(30),
-        default='program_only',
-        nullable=False
-    )
-
     # Relationships
     program_preferences = db.relationship(
         'UserProgramPreference',
@@ -59,8 +51,8 @@ class User(UserMixin, db.Model):
         lazy='dynamic',
         cascade='all, delete-orphan'
     )
-    region_preferences = db.relationship(
-        'UserRegionPreference',
+    country_watches = db.relationship(
+        'UserCountryWatch',
         backref='user',
         lazy='dynamic',
         cascade='all, delete-orphan'
@@ -84,38 +76,40 @@ class User(UserMixin, db.Model):
         """Get list of program area keys this user has selected (any subtopic selection counts)."""
         return list(set(pref.program_area_key for pref in self.program_preferences))
 
-    def get_selected_region_keys(self):
-        """Get list of region keys this user has selected."""
-        return [pref.region_key for pref in self.region_preferences]
-
     def get_program_preferences_detail(self):
         """
-        Get detailed program preferences including subtopic selections.
+        Get detailed program preferences including subtopic and region selections.
 
         Returns:
-            Dictionary mapping program_area_key to list of subtopic_keys.
-            If subtopic_key is None in the list, user wants ALL subtopics.
+            List of dicts with program_area_key, subtopic_key, and region_key.
         """
-        result = {}
-        for pref in self.program_preferences:
-            if pref.program_area_key not in result:
-                result[pref.program_area_key] = []
-            result[pref.program_area_key].append(pref.subtopic_key)
-        return result
+        return [
+            {
+                'program_area_key': pref.program_area_key,
+                'subtopic_key': pref.subtopic_key,
+                'region_key': pref.region_key
+            }
+            for pref in self.program_preferences
+        ]
 
-    def wants_all_subtopics(self, program_key):
-        """Check if user wants all subtopics for a program area (None in preferences)."""
-        prefs = self.get_program_preferences_detail()
-        if program_key not in prefs:
-            return False
-        return None in prefs[program_key]
+    def get_country_watches(self):
+        """
+        Get user's country watch preferences.
 
-    def get_selected_subtopics(self, program_key):
-        """Get list of selected subtopic keys for a program area."""
-        prefs = self.get_program_preferences_detail()
-        if program_key not in prefs:
-            return []
-        return [st for st in prefs[program_key] if st is not None]
+        Returns:
+            List of dicts with region_key and country_name.
+        """
+        return [
+            {
+                'region_key': watch.region_key,
+                'country_name': watch.country_name
+            }
+            for watch in self.country_watches
+        ]
+
+    def has_subscriptions(self):
+        """Check if user has any program subscriptions or country watches."""
+        return self.program_preferences.count() > 0 or self.country_watches.count() > 0
 
     def __repr__(self):
         return f'<User {self.email}>'
@@ -127,6 +121,8 @@ class UserProgramPreference(db.Model):
 
     If subtopic_key is NULL, user wants ALL subtopics within that program area.
     If subtopic_key is set, user only wants that specific subtopic.
+    If region_key is set, only get publications that match that region.
+    If region_key is NULL, get publications from any region.
 
     One user can have multiple entries for the same program area with different subtopics.
     """
@@ -141,25 +137,34 @@ class UserProgramPreference(db.Model):
     )
     program_area_key = db.Column(db.String(50), nullable=False, index=True)
     subtopic_key = db.Column(db.String(50), nullable=True, index=True)  # NULL = all subtopics
+    region_key = db.Column(db.String(50), nullable=True, index=True)  # NULL = all regions
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Ensure a user can only select each program/subtopic combination once
+    # Ensure a user can only select each program/subtopic/region combination once
     __table_args__ = (
-        db.UniqueConstraint('user_id', 'program_area_key', 'subtopic_key', name='unique_user_program_subtopic'),
+        db.UniqueConstraint('user_id', 'program_area_key', 'subtopic_key', 'region_key',
+                           name='unique_user_program_subtopic_region'),
     )
 
     def __repr__(self):
-        if self.subtopic_key:
-            return f'<UserProgramPreference {self.user_id}:{self.program_area_key}:{self.subtopic_key}>'
-        return f'<UserProgramPreference {self.user_id}:{self.program_area_key}:ALL>'
+        parts = [str(self.user_id), self.program_area_key]
+        parts.append(self.subtopic_key or 'ALL')
+        if self.region_key:
+            parts.append(self.region_key)
+        return f'<UserProgramPreference {":".join(parts)}>'
 
 
-class UserRegionPreference(db.Model):
+class UserCountryWatch(db.Model):
     """
-    Links a user to a geographic region they're interested in.
-    One user can have multiple region preferences.
+    Links a user to a country/region they want ALL publications for.
+
+    This is the "Country Watch" subscription type - user gets every health
+    publication that mentions this country/region, regardless of program area.
+
+    If region_key is set and country_name is NULL: watching entire region
+    If country_name is set: watching specific country (region_key can indicate which region it belongs to)
     """
-    __tablename__ = 'user_region_preferences'
+    __tablename__ = 'user_country_watches'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
@@ -168,16 +173,19 @@ class UserRegionPreference(db.Model):
         nullable=False,
         index=True
     )
-    region_key = db.Column(db.String(50), nullable=False)
+    region_key = db.Column(db.String(50), nullable=True, index=True)  # NULL if watching specific country only
+    country_name = db.Column(db.String(100), nullable=True, index=True)  # NULL if watching entire region
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Ensure a user can only select each region once
+    # Ensure unique combinations
     __table_args__ = (
-        db.UniqueConstraint('user_id', 'region_key', name='unique_user_region'),
+        db.UniqueConstraint('user_id', 'region_key', 'country_name', name='unique_user_country_watch'),
     )
 
     def __repr__(self):
-        return f'<UserRegionPreference {self.user_id}:{self.region_key}>'
+        if self.country_name:
+            return f'<UserCountryWatch {self.user_id}:{self.country_name}>'
+        return f'<UserCountryWatch {self.user_id}:{self.region_key}>'
 
 
 class Publication(db.Model):

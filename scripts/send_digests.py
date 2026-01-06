@@ -118,9 +118,9 @@ def send_test_digest(app, email):
             print("\nNo new publications to send. Try running the scrapers first.")
             return
 
-        # Create and show the digest
+        # Create and show the digest (pass empty list for ICYMI in test mode)
         print("\nGenerating digest...")
-        content = create_digest_content(user, publications)
+        content = create_digest_content(user, publications, [])
 
         print(f"\nSubject: {content['subject']}")
         print("\n--- HTML Preview (first 500 chars) ---")
@@ -132,7 +132,7 @@ def send_test_digest(app, email):
         if confirm == 'y':
             result = send_digest_to_user(user)
             if result['success']:
-                print(f"\nDigest sent successfully! ({result['publications_sent']} publications)")
+                print(f"\nDigest sent successfully! ({result.get('new_sent', 0)} new, {result.get('icymi_count', 0)} ICYMI)")
             else:
                 print(f"\nFailed to send digest: {result.get('error', 'Unknown error')}")
         else:

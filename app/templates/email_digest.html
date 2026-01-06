@@ -241,7 +241,12 @@
                             {% endif %}
                             {% if subscribed_regions %}
                             <p style="margin: 5px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
-                                <strong style="color: #4a5568;">Regions:</strong> {{ subscribed_regions|join(', ') }}
+                                <strong style="color: #c05621;">Watching Regions:</strong> {{ subscribed_regions|join(', ') }}
+                            </p>
+                            {% endif %}
+                            {% if watched_countries %}
+                            <p style="margin: 5px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
+                                <strong style="color: #c05621;">Watching Countries:</strong> {{ watched_countries|join(', ') }}
                             </p>
                             {% endif %}
 

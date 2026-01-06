@@ -717,12 +717,48 @@ REGIONS_AND_COUNTRIES = {
     }
 }
 
-# Filter mode options for users
-FILTER_MODES = {
-    "program_only": "Filter by program areas only",
-    "region_only": "Filter by regions only",
-    "program_and_region": "Filter by BOTH program area AND region"
-}
+# Complete list of all countries for Country Watch feature
+# This allows users to select any country regardless of region grouping
+ALL_COUNTRIES = sorted(set([
+    # Sub-Saharan Africa
+    "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde",
+    "Cameroon", "Central African Republic", "Chad", "Comoros",
+    "Democratic Republic of the Congo", "Republic of the Congo",
+    "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea",
+    "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea",
+    "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi",
+    "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger",
+    "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles",
+    "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan",
+    "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe",
+    # South Asia
+    "Afghanistan", "Bangladesh", "Bhutan", "India", "Maldives", "Nepal",
+    "Pakistan", "Sri Lanka",
+    # Southeast Asia
+    "Brunei", "Cambodia", "Indonesia", "Laos", "Malaysia", "Myanmar",
+    "Philippines", "Singapore", "Thailand", "Timor-Leste", "Vietnam",
+    # East Asia & Pacific
+    "China", "Fiji", "Kiribati", "Marshall Islands", "Micronesia", "Mongolia",
+    "Nauru", "North Korea", "Palau", "Papua New Guinea", "Samoa",
+    "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu",
+    # Latin America & Caribbean
+    "Antigua and Barbuda", "Argentina", "Bahamas", "Barbados", "Belize",
+    "Bolivia", "Brazil", "Chile", "Colombia", "Costa Rica", "Cuba",
+    "Dominica", "Dominican Republic", "Ecuador", "El Salvador", "Grenada",
+    "Guatemala", "Guyana", "Haiti", "Honduras", "Jamaica", "Mexico",
+    "Nicaragua", "Panama", "Paraguay", "Peru", "Saint Kitts and Nevis",
+    "Saint Lucia", "Saint Vincent and the Grenadines", "Suriname",
+    "Trinidad and Tobago", "Uruguay", "Venezuela",
+    # Middle East & North Africa
+    "Algeria", "Bahrain", "Egypt", "Iran", "Iraq", "Jordan", "Kuwait",
+    "Lebanon", "Libya", "Morocco", "Oman", "Palestine", "Qatar",
+    "Saudi Arabia", "Syria", "Tunisia", "United Arab Emirates", "Yemen",
+    # Eastern Europe & Central Asia
+    "Albania", "Armenia", "Azerbaijan", "Belarus", "Bosnia and Herzegovina",
+    "Georgia", "Kazakhstan", "Kosovo", "Kyrgyzstan", "Moldova", "Montenegro",
+    "North Macedonia", "Russia", "Serbia", "Tajikistan", "Turkey",
+    "Turkmenistan", "Ukraine", "Uzbekistan"
+]))
 
 
 def get_region_name(key):
@@ -750,3 +786,16 @@ def get_all_searchable_terms_for_region(region_key):
         return []
     region = REGIONS_AND_COUNTRIES[region_key]
     return region["keywords"] + region["countries"]
+
+
+def get_all_country_choices():
+    """Get list of all countries for Country Watch selection."""
+    return ALL_COUNTRIES
+
+
+def get_region_for_country(country_name):
+    """Find which region a country belongs to."""
+    for region_key, region_data in REGIONS_AND_COUNTRIES.items():
+        if country_name in region_data["countries"]:
+            return region_key
+    return None
