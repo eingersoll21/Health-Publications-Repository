@@ -159,9 +159,10 @@ def send_digests(app):
         if results['details']:
             print("\nDetails:")
             for detail in results['details']:
-                status = "SENT" if detail['success'] and detail['publications_sent'] > 0 else \
+                total_pubs = detail.get('new_sent', 0) + detail.get('icymi_count', 0)
+                status = "SENT" if detail['success'] and total_pubs > 0 else \
                          "SKIPPED" if detail['success'] else "FAILED"
-                print(f"  [{status}] {detail['email']}: {detail.get('publications_sent', 0)} publications")
+                print(f"  [{status}] {detail['email']}: {detail.get('new_sent', 0)} new, {detail.get('icymi_count', 0)} ICYMI")
                 if not detail['success']:
                     print(f"         Error: {detail.get('error', 'Unknown')}")
 
