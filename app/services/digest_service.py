@@ -30,10 +30,17 @@ from app.routes import generate_unsubscribe_token
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Constants for digest sections
-MAX_NEW_PUBLICATIONS = 7
-MAX_ICYMI_PUBLICATIONS = 5
-TOTAL_MAX_PUBLICATIONS = 12
+# Constants for digest sections - separate caps per subscription type
+# New This Week section
+MAX_NEW_PROGRAM_PUBS = 10      # Program Subscriptions cap
+MAX_NEW_COUNTRY_WATCH_PUBS = 10  # Country Watch cap
+
+# In Case You Missed It section
+MAX_ICYMI_PROGRAM_PUBS = 5     # Program Subscriptions cap
+MAX_ICYMI_COUNTRY_WATCH_PUBS = 5  # Country Watch cap
+
+# Total maximum per digest
+TOTAL_MAX_PUBLICATIONS = 30
 
 # Lookback periods for "In Case You Missed It" section (in days)
 ICYMI_LOOKBACK = {
@@ -638,7 +645,7 @@ def _format_program_subscriptions_for_footer(program_prefs):
     return result
 
 
-def get_previously_sent_publications(user, lookback_days, max_publications=MAX_ICYMI_PUBLICATIONS, exclude_ids=None):
+def get_previously_sent_publications(user, lookback_days, max_publications=MAX_ICYMI_PROGRAM_PUBS, exclude_ids=None, subscription_type=None):
     """
     Get publications that were previously sent to this user within the lookback period.
 
@@ -647,9 +654,10 @@ def get_previously_sent_publications(user, lookback_days, max_publications=MAX_I
         lookback_days: How many days back to look for previously sent publications
         max_publications: Maximum number of publications to return
         exclude_ids: Set of publication IDs to exclude (e.g., those in Section 1)
+        subscription_type: Filter by subscription type - 'program', 'country_watch', or None for all
 
     Returns:
-        List of dicts with publication data, program areas, and regions
+        List of dicts with publication data, program areas, and regions, sorted by relevance
     """
     if exclude_ids is None:
         exclude_ids = set()
@@ -674,6 +682,21 @@ def get_previously_sent_publications(user, lookback_days, max_publications=MAX_I
     if not sent_pub_ids:
         return []
 
+    # Get user's subscribed program keys for filtering
+    user_program_keys = set()
+    if subscription_type in ('program', None):
+        user_program_keys = set(pref.program_area_key for pref in user.program_preferences)
+
+    # Get user's watched regions/countries for filtering
+    user_watched_regions = set()
+    user_watched_countries = set()
+    if subscription_type in ('country_watch', None):
+        for watch in user.country_watches:
+            if watch.region_key and not watch.country_name:
+                user_watched_regions.add(watch.region_key)
+            if watch.country_name:
+                user_watched_countries.add(watch.country_name)
+
     # Get the publications with their program areas
     pub_dict = {}
     for pub_id in sent_pub_ids:
@@ -681,26 +704,24 @@ def get_previously_sent_publications(user, lookback_days, max_publications=MAX_I
         if not pub:
             continue
 
-        pub_dict[pub.id] = {
-            'publication': pub,
-            'program_areas': [],
-            'subtopics': [],
-            'regions': []
-        }
-
         # Get program areas
         areas = PublicationProgramArea.query.filter_by(publication_id=pub_id).all()
+        program_areas = []
+        matches_program = False
         for area in areas:
-            pub_dict[pub.id]['program_areas'].append({
+            program_areas.append({
                 'key': area.program_area_key,
                 'name': get_program_area_name(area.program_area_key),
                 'score': area.relevance_score
             })
+            if area.program_area_key in user_program_keys:
+                matches_program = True
 
         # Get subtopics
         subtopics = PublicationSubtopic.query.filter_by(publication_id=pub_id).all()
+        subtopic_list = []
         for st in subtopics:
-            pub_dict[pub.id]['subtopics'].append({
+            subtopic_list.append({
                 'program_key': st.program_area_key,
                 'subtopic_key': st.subtopic_key,
                 'name': get_subtopic_name(st.program_area_key, st.subtopic_key),
@@ -709,19 +730,48 @@ def get_previously_sent_publications(user, lookback_days, max_publications=MAX_I
 
         # Get regions
         regions = PublicationRegion.query.filter_by(publication_id=pub_id).all()
+        region_list = []
+        matches_country_watch = False
         for region in regions:
-            pub_dict[pub.id]['regions'].append({
+            region_list.append({
                 'key': region.region_key,
                 'name': get_region_name(region.region_key),
                 'matched_terms': region.matched_terms
             })
+            # Check if this region matches user's country watch
+            if region.region_key in user_watched_regions:
+                matches_country_watch = True
+            # Check if any matched terms are in user's watched countries
+            if region.matched_terms:
+                matched_terms = [t.strip() for t in region.matched_terms.split(',')]
+                if any(term in user_watched_countries for term in matched_terms):
+                    matches_country_watch = True
+
+        # Filter based on subscription_type
+        include_pub = False
+        if subscription_type == 'program' and matches_program:
+            include_pub = True
+        elif subscription_type == 'country_watch' and matches_country_watch:
+            include_pub = True
+        elif subscription_type is None:
+            include_pub = True
+
+        if include_pub:
+            pub_dict[pub.id] = {
+                'publication': pub,
+                'program_areas': program_areas,
+                'subtopics': subtopic_list,
+                'regions': region_list,
+                'from_program_sub': matches_program,
+                'from_country_watch': matches_country_watch
+            }
 
     # Convert to list, sort by relevance score, and limit
     results = list(pub_dict.values())
     results.sort(key=_get_max_score, reverse=True)
     results = results[:max_publications]
 
-    logger.info(f"Found {len(results)} previously sent publications for user {user.email}")
+    logger.info(f"Found {len(results)} previously sent publications for user {user.email} (type: {subscription_type or 'all'})")
     return results
 
 
@@ -1044,9 +1094,15 @@ def send_digest_to_user(user, base_url=None):
     """
     Create and send a digest email to a single user.
 
-    The digest has two sections:
-    1. "New This Week" - up to 7 new publications
-    2. "In Case You Missed It" - up to 5 previously sent publications
+    The digest has two main sections with sub-sections:
+    1. "New This Week"
+       - Program Subscriptions: up to MAX_NEW_PROGRAM_PUBS publications
+       - Country Watch: up to MAX_NEW_COUNTRY_WATCH_PUBS publications
+    2. "In Case You Missed It"
+       - Program Subscriptions: up to MAX_ICYMI_PROGRAM_PUBS publications
+       - Country Watch: up to MAX_ICYMI_COUNTRY_WATCH_PUBS publications
+
+    Total maximum: TOTAL_MAX_PUBLICATIONS (30)
 
     Args:
         user: User object
@@ -1059,8 +1115,46 @@ def send_digest_to_user(user, base_url=None):
         base_url = Config.BASE_URL
     logger.info(f"Preparing digest for user {user.email}")
 
-    # Get new publications for this user (Section 1)
-    new_publications = get_publications_for_user(user, max_publications=MAX_NEW_PUBLICATIONS)
+    # Get new publications separately by subscription type with individual caps
+    # Each list is sorted by relevance score (highest first)
+    new_program_pubs = get_program_subscription_publications(
+        user, days_back=30, max_publications=MAX_NEW_PROGRAM_PUBS
+    )
+    new_country_watch_pubs = get_country_watch_publications(
+        user, days_back=30, max_publications=MAX_NEW_COUNTRY_WATCH_PUBS
+    )
+
+    # Get resurfaced publications (ahead-of-print that are now officially published)
+    resurfaced_pubs = get_resurfaced_publications(user, max_publications=MAX_NEW_PROGRAM_PUBS)
+
+    # Mark resurfaced publications and add to program pubs (they were originally program subs)
+    for pub_data in resurfaced_pubs:
+        pub_data['is_resurfaced'] = True
+        pub_data['from_program_sub'] = True
+
+    # Combine into new_publications list, handling overlaps
+    new_pub_dict = {}
+
+    # Add resurfaced first (priority)
+    for pub_data in resurfaced_pubs:
+        pub_id = pub_data['publication'].id
+        new_pub_dict[pub_id] = pub_data
+
+    # Add program pubs (mark as from_program_sub)
+    for pub_data in new_program_pubs:
+        pub_id = pub_data['publication'].id
+        if pub_id not in new_pub_dict:
+            new_pub_dict[pub_id] = pub_data
+        new_pub_dict[pub_id]['from_program_sub'] = True
+
+    # Add country watch pubs (mark as from_country_watch)
+    for pub_data in new_country_watch_pubs:
+        pub_id = pub_data['publication'].id
+        if pub_id not in new_pub_dict:
+            new_pub_dict[pub_id] = pub_data
+        new_pub_dict[pub_id]['from_country_watch'] = True
+
+    new_publications = list(new_pub_dict.values())
 
     # Get IDs of new publications to exclude from ICYMI
     new_pub_ids = set(p['publication'].id for p in new_publications)
@@ -1068,13 +1162,35 @@ def send_digest_to_user(user, base_url=None):
     # Get lookback period based on user's frequency
     lookback_days = ICYMI_LOOKBACK.get(user.digest_frequency, 14)
 
-    # Get previously sent publications (Section 2)
-    icymi_publications = get_previously_sent_publications(
+    # Get previously sent publications separately by subscription type
+    icymi_program_pubs = get_previously_sent_publications(
         user,
         lookback_days=lookback_days,
-        max_publications=MAX_ICYMI_PUBLICATIONS,
-        exclude_ids=new_pub_ids
+        max_publications=MAX_ICYMI_PROGRAM_PUBS,
+        exclude_ids=new_pub_ids,
+        subscription_type='program'
     )
+    icymi_country_watch_pubs = get_previously_sent_publications(
+        user,
+        lookback_days=lookback_days,
+        max_publications=MAX_ICYMI_COUNTRY_WATCH_PUBS,
+        exclude_ids=new_pub_ids,
+        subscription_type='country_watch'
+    )
+
+    # Combine ICYMI publications, handling overlaps
+    icymi_pub_dict = {}
+    for pub_data in icymi_program_pubs:
+        pub_id = pub_data['publication'].id
+        icymi_pub_dict[pub_id] = pub_data
+        icymi_pub_dict[pub_id]['from_program_sub'] = True
+    for pub_data in icymi_country_watch_pubs:
+        pub_id = pub_data['publication'].id
+        if pub_id not in icymi_pub_dict:
+            icymi_pub_dict[pub_id] = pub_data
+        icymi_pub_dict[pub_id]['from_country_watch'] = True
+
+    icymi_publications = list(icymi_pub_dict.values())
 
     # If no publications at all, skip sending
     if not new_publications and not icymi_publications:
