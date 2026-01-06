@@ -354,7 +354,7 @@ def login():
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
-            return redirect(url_for('main.preferences'))
+            return redirect(url_for('main.browse'))
         else:
             flash('Invalid email or password.', 'error')
             return render_template('login.html', email=email)
