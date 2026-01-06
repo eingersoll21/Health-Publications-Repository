@@ -14,7 +14,7 @@ This module handles creating and sending email digests:
 
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from flask import render_template, url_for
 
 from app.models import db, User, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion, DigestLog
@@ -86,18 +86,19 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
         return []
 
     # Organize preferences by what they want
-    # {program_key: {'subtopics': set(), 'want_all': bool, 'region_filter': set()}}
+    # {program_key: {'subtopics': set(), 'want_all': bool, 'location_type': str, 'location_values': set()}}
     prefs_by_program = {}
     for pref in program_prefs:
         program_key = pref['program_area_key']
         subtopic_key = pref['subtopic_key']
-        region_key = pref['region_key']
+        locations = pref.get('locations', [])
 
         if program_key not in prefs_by_program:
             prefs_by_program[program_key] = {
                 'subtopics': set(),
                 'want_all': False,
-                'region_filters': set()
+                'location_type': 'all',
+                'location_values': set()
             }
 
         if subtopic_key is None:
@@ -105,8 +106,10 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
         else:
             prefs_by_program[program_key]['subtopics'].add(subtopic_key)
 
-        if region_key:
-            prefs_by_program[program_key]['region_filters'].add(region_key)
+        # Handle location filters (all locations for a program should have same type)
+        for loc in locations:
+            prefs_by_program[program_key]['location_type'] = loc['location_type']
+            prefs_by_program[program_key]['location_values'].add(loc['location_value'])
 
     # Calculate date cutoff
     cutoff_date = datetime.utcnow() - timedelta(days=days_back)
@@ -135,7 +138,7 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
             ).all()
 
             for pub, pub_area in matching_pubs:
-                _add_publication_to_dict(pub_dict, pub, pub_area, pref_data['region_filters'])
+                _add_publication_to_dict(pub_dict, pub, pub_area, pref_data['location_type'], pref_data['location_values'])
 
         # Get publications matching specific subtopics
         for subtopic_key in pref_data['subtopics']:
@@ -153,11 +156,11 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
             ).all()
 
             for pub, pub_subtopic in subtopic_pubs:
-                _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, pref_data['region_filters'])
+                _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, pref_data['location_type'], pref_data['location_values'])
 
-    # Apply region filter if specified (remove publications not matching region)
-    if any(pref_data['region_filters'] for pref_data in prefs_by_program.values()):
-        pub_dict = _filter_by_region(pub_dict, prefs_by_program)
+    # Apply location filter if specified (remove publications not matching location)
+    if any(pref_data['location_values'] for pref_data in prefs_by_program.values()):
+        pub_dict = _filter_by_location(pub_dict, prefs_by_program)
 
     # Add region info for display
     for pub_id, pub_data in pub_dict.items():
@@ -179,7 +182,7 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
     return results
 
 
-def _add_publication_to_dict(pub_dict, pub, pub_area, region_filters):
+def _add_publication_to_dict(pub_dict, pub, pub_area, location_type, location_values):
     """Add a publication matched by program area to the dict."""
     if pub.id not in pub_dict:
         pub_dict[pub.id] = {
@@ -187,7 +190,8 @@ def _add_publication_to_dict(pub_dict, pub, pub_area, region_filters):
             'program_areas': [],
             'subtopics': [],
             'regions': [],
-            'region_filters': region_filters  # Track which region filters apply
+            'location_type': location_type,
+            'location_values': location_values
         }
     pub_dict[pub.id]['program_areas'].append({
         'key': pub_area.program_area_key,
@@ -196,7 +200,7 @@ def _add_publication_to_dict(pub_dict, pub, pub_area, region_filters):
     })
 
 
-def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, region_filters):
+def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, location_type, location_values):
     """Add a publication matched by subtopic to the dict."""
     if pub.id not in pub_dict:
         pub_dict[pub.id] = {
@@ -204,7 +208,8 @@ def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, region_filter
             'program_areas': [],
             'subtopics': [],
             'regions': [],
-            'region_filters': region_filters
+            'location_type': location_type,
+            'location_values': location_values
         }
         # Also get program area info
         area = PublicationProgramArea.query.filter_by(
@@ -225,32 +230,53 @@ def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, region_filter
     })
 
 
-def _filter_by_region(pub_dict, prefs_by_program):
-    """Filter publications to only include those matching region filters."""
+def _filter_by_location(pub_dict, prefs_by_program):
+    """Filter publications to only include those matching location filters (region or country)."""
     filtered_dict = {}
 
     for pub_id, pub_data in pub_dict.items():
-        region_filters = pub_data.get('region_filters', set())
+        location_type = pub_data.get('location_type', 'all')
+        location_values = pub_data.get('location_values', set())
 
-        # If no region filter, include the publication
-        if not region_filters:
+        # If no location filter (type='all'), include the publication
+        if location_type == 'all' or not location_values:
             filtered_dict[pub_id] = pub_data
             continue
 
-        # Check if publication matches any of the region filters
+        # Get all regions for this publication
         pub_regions = PublicationRegion.query.filter_by(publication_id=pub_id).all()
-        pub_region_keys = set(r.region_key for r in pub_regions)
 
-        if pub_region_keys.intersection(region_filters):
-            filtered_dict[pub_id] = pub_data
-            # Add region info
+        if location_type == 'region':
+            # Filter by region - publication must match ANY of the selected regions
+            pub_region_keys = set(r.region_key for r in pub_regions)
+            if pub_region_keys.intersection(location_values):
+                filtered_dict[pub_id] = pub_data
+                # Add matching region info
+                for region in pub_regions:
+                    if region.region_key in location_values:
+                        pub_data['regions'].append({
+                            'key': region.region_key,
+                            'name': get_region_name(region.region_key),
+                            'matched_terms': region.matched_terms
+                        })
+
+        elif location_type == 'country':
+            # Filter by country - publication must mention ANY of the selected countries
+            matched = False
             for region in pub_regions:
-                if region.region_key in region_filters:
-                    pub_data['regions'].append({
-                        'key': region.region_key,
-                        'name': get_region_name(region.region_key),
-                        'matched_terms': region.matched_terms
-                    })
+                if region.matched_terms:
+                    matched_terms = set(region.matched_terms.split(', '))
+                    if matched_terms.intersection(location_values):
+                        matched = True
+                        if pub_id not in filtered_dict:
+                            filtered_dict[pub_id] = pub_data
+                        # Add region info with matched countries highlighted
+                        if not any(r['key'] == region.region_key for r in pub_data['regions']):
+                            pub_data['regions'].append({
+                                'key': region.region_key,
+                                'name': get_region_name(region.region_key),
+                                'matched_terms': region.matched_terms
+                            })
 
     return filtered_dict
 
@@ -387,7 +413,7 @@ def get_country_watch_publications(user, days_back=30, max_publications=None):
 
     # Convert to list, sort by date, and limit
     results = list(pub_dict.values())
-    results.sort(key=lambda x: x['publication'].publication_date or datetime.min, reverse=True)
+    results.sort(key=lambda x: x['publication'].publication_date or date.min, reverse=True)
     results = results[:max_publications]
 
     logger.info(f"Found {len(results)} country watch publications for user {user.email}")
@@ -447,6 +473,73 @@ def _get_max_score(pub_data):
     scores = [pa['score'] for pa in pub_data.get('program_areas', [])]
     scores.extend([st['score'] for st in pub_data.get('subtopics', [])])
     return max(scores) if scores else 0
+
+
+def _format_program_subscriptions_for_footer(program_prefs):
+    """
+    Format program subscription preferences for email footer display.
+
+    Groups subscriptions by program area and includes location filter info.
+
+    Args:
+        program_prefs: List of preference dicts from user.get_program_preferences_detail()
+
+    Returns:
+        List of dicts: [{'program_name': str, 'subtopics': [str], 'location_filter': str}]
+    """
+    # Group by program area
+    programs = {}
+    for pref in program_prefs:
+        program_key = pref['program_area_key']
+        program_name = get_program_area_name(program_key)
+        subtopic_key = pref['subtopic_key']
+        locations = pref.get('locations', [])
+
+        if program_key not in programs:
+            programs[program_key] = {
+                'program_name': program_name,
+                'subtopics': [],
+                'want_all_subtopics': False,
+                'location_type': 'all',
+                'location_names': []
+            }
+
+        if subtopic_key is None:
+            programs[program_key]['want_all_subtopics'] = True
+        else:
+            subtopic_name = get_subtopic_name(program_key, subtopic_key)
+            if subtopic_name not in programs[program_key]['subtopics']:
+                programs[program_key]['subtopics'].append(subtopic_name)
+
+        # Handle location filters
+        for loc in locations:
+            programs[program_key]['location_type'] = loc['location_type']
+            if loc['location_type'] == 'region':
+                loc_name = get_region_name(loc['location_value'])
+            else:
+                loc_name = loc['location_value']  # Country name is already human-readable
+            if loc_name not in programs[program_key]['location_names']:
+                programs[program_key]['location_names'].append(loc_name)
+
+    # Format for display
+    result = []
+    for program_key, data in programs.items():
+        formatted = {
+            'program_name': data['program_name'],
+            'subtopics': data['subtopics'] if not data['want_all_subtopics'] else [],
+            'all_subtopics': data['want_all_subtopics'],
+            'location_filter': None
+        }
+
+        # Build location filter string
+        if data['location_type'] == 'region' and data['location_names']:
+            formatted['location_filter'] = f"Regions: {', '.join(data['location_names'])}"
+        elif data['location_type'] == 'country' and data['location_names']:
+            formatted['location_filter'] = f"Countries: {', '.join(data['location_names'])}"
+
+        result.append(formatted)
+
+    return result
 
 
 def get_previously_sent_publications(user, lookback_days, max_publications=MAX_ICYMI_PUBLICATIONS, exclude_ids=None):
@@ -551,6 +644,9 @@ def format_publication_for_display(pub_data):
     # Get the highest relevance score
     max_score = _get_max_score(pub_data)
 
+    # Get program area names for display (deduplicated)
+    program_area_names = list(dict.fromkeys([pa['name'] for pa in pub_data.get('program_areas', [])]))
+
     # Get region and subtopic names for display
     region_names = [r['name'] for r in pub_data.get('regions', [])]
     subtopic_names = [st['name'] for st in pub_data.get('subtopics', [])]
@@ -563,6 +659,7 @@ def format_publication_for_display(pub_data):
         'abstract': truncate_text(pub.abstract, 200) if pub.abstract else None,
         'authors': pub.authors,
         'relevance_score': max_score,
+        'program_areas': program_area_names,
         'regions': region_names,
         'subtopics': subtopic_names,
         'from_country_watch': pub_data.get('from_country_watch', False),
@@ -587,17 +684,32 @@ def create_digest_content(user, new_publications, icymi_publications, base_url=N
     if base_url is None:
         base_url = Config.BASE_URL
 
+    # Separate new publications by subscription type
+    new_program_pubs = [p for p in new_publications if p.get('from_program_sub', False) and not p.get('from_country_watch', False)]
+    new_country_watch_pubs = [p for p in new_publications if p.get('from_country_watch', False) and not p.get('from_program_sub', False)]
+    new_both_pubs = [p for p in new_publications if p.get('from_program_sub', False) and p.get('from_country_watch', False)]
+
+    # Publications that match both go to program subscriptions section
+    new_program_pubs.extend(new_both_pubs)
+
+    # Separate ICYMI publications by subscription type (need to check source)
+    icymi_program_pubs = [p for p in icymi_publications if p.get('from_program_sub', False) or not p.get('from_country_watch', False)]
+    icymi_country_watch_pubs = [p for p in icymi_publications if p.get('from_country_watch', False)]
+
     # Format publications for display
-    new_pubs_formatted = [format_publication_for_display(p) for p in new_publications]
-    icymi_pubs_formatted = [format_publication_for_display(p) for p in icymi_publications]
+    new_program_pubs_formatted = [format_publication_for_display(p) for p in new_program_pubs]
+    new_country_watch_pubs_formatted = [format_publication_for_display(p) for p in new_country_watch_pubs]
+    icymi_program_pubs_formatted = [format_publication_for_display(p) for p in icymi_program_pubs]
+    icymi_country_watch_pubs_formatted = [format_publication_for_display(p) for p in icymi_country_watch_pubs]
 
     # Generate unsubscribe token
     unsubscribe_token = generate_unsubscribe_token(user)
     unsubscribe_url = f"{base_url}/unsubscribe/{unsubscribe_token}"
     preferences_url = f"{base_url}/preferences"
 
-    # Get user's subscribed areas for footer
-    subscribed_areas = [get_program_area_name(key) for key in user.get_selected_program_keys()]
+    # Get user's program subscriptions with location filters for footer
+    program_prefs = user.get_program_preferences_detail()
+    program_subscriptions = _format_program_subscriptions_for_footer(program_prefs)
 
     # Get user's country watches for footer
     country_watches = user.get_country_watches()
@@ -619,18 +731,32 @@ def create_digest_content(user, new_publications, icymi_publications, base_url=N
     # Create context for template
     context = {
         'user': user,
-        'new_publications': new_pubs_formatted,
-        'icymi_publications': icymi_pubs_formatted,
+        # Separated new publications
+        'new_program_pubs': new_program_pubs_formatted,
+        'new_country_watch_pubs': new_country_watch_pubs_formatted,
+        # Separated ICYMI publications
+        'icymi_program_pubs': icymi_program_pubs_formatted,
+        'icymi_country_watch_pubs': icymi_country_watch_pubs_formatted,
+        # Counts
+        'new_program_count': len(new_program_pubs_formatted),
+        'new_country_watch_count': len(new_country_watch_pubs_formatted),
         'new_count': len(new_publications),
+        'icymi_program_count': len(icymi_program_pubs_formatted),
+        'icymi_country_watch_count': len(icymi_country_watch_pubs_formatted),
         'icymi_count': len(icymi_publications),
         'total_count': total_count,
+        # Flags for showing sections
         'has_new_publications': len(new_publications) > 0,
+        'has_new_program_pubs': len(new_program_pubs_formatted) > 0,
+        'has_new_country_watch_pubs': len(new_country_watch_pubs_formatted) > 0,
         'has_icymi_publications': len(icymi_publications) > 0,
+        'has_icymi_program_pubs': len(icymi_program_pubs_formatted) > 0,
+        'has_icymi_country_watch_pubs': len(icymi_country_watch_pubs_formatted) > 0,
         'no_new_pubs_message': no_new_pubs_message,
         'icymi_header': icymi_header,
         'start_date': start_date.strftime('%B %d, %Y'),
         'end_date': end_date.strftime('%B %d, %Y'),
-        'subscribed_areas': subscribed_areas,
+        'program_subscriptions': program_subscriptions,
         'subscribed_regions': watched_regions,
         'watched_countries': watched_countries,
         'unsubscribe_url': unsubscribe_url,
@@ -669,6 +795,29 @@ def create_plain_text_digest(context):
     Returns:
         Plain text string
     """
+    def format_pub_text(pub):
+        """Format a single publication for plain text."""
+        pub_lines = []
+        pub_lines.append(f"* {pub['title']}")
+        pub_lines.append(f"  Source: {pub['source']}")
+        if pub['date']:
+            pub_lines.append(f"  Date: {pub['date'].strftime('%Y-%m-%d')}")
+        # Show program areas and subtopics as tags
+        tags = []
+        if pub.get('program_areas'):
+            tags.extend(pub['program_areas'])
+        if pub.get('subtopics'):
+            tags.extend(pub['subtopics'])
+        if tags:
+            pub_lines.append(f"  Tags: [{'] ['.join(tags)}]")
+        if pub.get('regions'):
+            pub_lines.append(f"  Regions: {', '.join(pub['regions'])}")
+        pub_lines.append(f"  Link: {pub['url']}")
+        if pub['abstract']:
+            pub_lines.append(f"  {pub['abstract']}")
+        pub_lines.append("")
+        return pub_lines
+
     lines = [
         "CHAI Health Publications Digest",
         "=" * 40,
@@ -678,24 +827,29 @@ def create_plain_text_digest(context):
 
     # Section 1: New This Week
     if context['has_new_publications']:
+        lines.append("=" * 40)
         lines.append("NEW THIS WEEK")
-        lines.append("-" * 20)
+        lines.append("=" * 40)
         lines.append(f"{context['new_count']} new publication{'s' if context['new_count'] != 1 else ''}")
         lines.append("")
 
-        for pub in context['new_publications']:
-            lines.append(f"* {pub['title']}")
-            lines.append(f"  Source: {pub['source']}")
-            if pub['date']:
-                lines.append(f"  Date: {pub['date'].strftime('%Y-%m-%d')}")
-            if pub.get('subtopics'):
-                lines.append(f"  Topics: {', '.join(pub['subtopics'])}")
-            if pub.get('regions'):
-                lines.append(f"  Regions: {', '.join(pub['regions'])}")
-            lines.append(f"  Link: {pub['url']}")
-            if pub['abstract']:
-                lines.append(f"  {pub['abstract']}")
+        # Program Subscriptions sub-section
+        if context.get('has_new_program_pubs'):
+            lines.append("PROGRAM SUBSCRIPTIONS")
+            lines.append("-" * 20)
+            lines.append(f"{context['new_program_count']} publication{'s' if context['new_program_count'] != 1 else ''}")
             lines.append("")
+            for pub in context['new_program_pubs']:
+                lines.extend(format_pub_text(pub))
+
+        # Country Watch sub-section
+        if context.get('has_new_country_watch_pubs'):
+            lines.append("COUNTRY WATCH")
+            lines.append("-" * 20)
+            lines.append(f"{context['new_country_watch_count']} publication{'s' if context['new_country_watch_count'] != 1 else ''}")
+            lines.append("")
+            for pub in context['new_country_watch_pubs']:
+                lines.extend(format_pub_text(pub))
     else:
         lines.append(context['no_new_pubs_message'])
         lines.append("")
@@ -703,33 +857,49 @@ def create_plain_text_digest(context):
     # Section 2: In Case You Missed It
     if context['has_icymi_publications']:
         lines.append("")
+        lines.append("=" * 40)
         lines.append(context['icymi_header'].upper())
-        lines.append("-" * 20)
+        lines.append("=" * 40)
         lines.append(f"{context['icymi_count']} publication{'s' if context['icymi_count'] != 1 else ''}")
         lines.append("")
 
-        for pub in context['icymi_publications']:
-            lines.append(f"* {pub['title']}")
-            lines.append(f"  Source: {pub['source']}")
-            if pub['date']:
-                lines.append(f"  Date: {pub['date'].strftime('%Y-%m-%d')}")
-            if pub.get('subtopics'):
-                lines.append(f"  Topics: {', '.join(pub['subtopics'])}")
-            if pub.get('regions'):
-                lines.append(f"  Regions: {', '.join(pub['regions'])}")
-            lines.append(f"  Link: {pub['url']}")
-            if pub['abstract']:
-                lines.append(f"  {pub['abstract']}")
+        # Program Subscriptions sub-section
+        if context.get('has_icymi_program_pubs'):
+            lines.append("PROGRAM SUBSCRIPTIONS")
+            lines.append("-" * 20)
+            lines.append(f"{context['icymi_program_count']} publication{'s' if context['icymi_program_count'] != 1 else ''}")
             lines.append("")
+            for pub in context['icymi_program_pubs']:
+                lines.extend(format_pub_text(pub))
+
+        # Country Watch sub-section
+        if context.get('has_icymi_country_watch_pubs'):
+            lines.append("COUNTRY WATCH")
+            lines.append("-" * 20)
+            lines.append(f"{context['icymi_country_watch_count']} publication{'s' if context['icymi_country_watch_count'] != 1 else ''}")
+            lines.append("")
+            for pub in context['icymi_country_watch_pubs']:
+                lines.extend(format_pub_text(pub))
 
     lines.extend([
         "",
         "-" * 40,
     ])
 
-    # Show subscription info
-    if context.get('subscribed_areas'):
-        lines.append(f"Program areas: {', '.join(context['subscribed_areas'])}")
+    # Show program subscription info
+    if context.get('program_subscriptions'):
+        lines.append("Program Subscriptions:")
+        for sub in context['program_subscriptions']:
+            sub_line = f"  - {sub['program_name']}"
+            if sub['subtopics']:
+                sub_line += f" ({', '.join(sub['subtopics'])})"
+            elif sub['all_subtopics']:
+                sub_line += " (All topics)"
+            if sub['location_filter']:
+                sub_line += f" [{sub['location_filter']}]"
+            lines.append(sub_line)
+
+    # Show country watch info
     if context.get('subscribed_regions'):
         lines.append(f"Watching regions: {', '.join(context['subscribed_regions'])}")
     if context.get('watched_countries'):

@@ -50,7 +50,7 @@
                         </td>
                     </tr>
 
-                    <!-- Section 1: New This Week -->
+                    <!-- ========== Section 1: New This Week ========== -->
                     {% if has_new_publications %}
                     <tr>
                         <td style="background-color: #ffffff; padding: 25px 40px; border-bottom: 1px solid #e2e8f0;">
@@ -68,9 +68,23 @@
                                 </tr>
                             </table>
 
-                            <!-- New Publications -->
-                            {% for pub in new_publications %}
+                            <!-- Program Subscriptions Sub-section -->
+                            {% if has_new_program_pubs %}
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px;">
+                                <tr>
+                                    <td style="padding: 10px 15px; background-color: #f0fff4; border-left: 4px solid #38a169;">
+                                        <h3 style="margin: 0; color: #276749; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Program Subscriptions
+                                        </h3>
+                                        <p style="margin: 3px 0 0 0; color: #48bb78; font-size: 12px;">
+                                            {{ new_program_count }} publication{% if new_program_count != 1 %}s{% endif %}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% for pub in new_program_pubs %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 15px; padding-left: 10px;">
                                 <tr>
                                     <td>
                                         <!-- Source Badge -->
@@ -86,30 +100,32 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 8px;">
-                                        <!-- Title -->
                                         <a href="{{ pub.url }}" style="color: #2d3748; font-size: 15px; font-weight: 600; text-decoration: none; line-height: 1.4;">
                                             {{ pub.title }}
                                         </a>
                                     </td>
                                 </tr>
-                                {% if pub.subtopics %}
                                 <tr>
                                     <td style="padding-top: 6px;">
+                                        <!-- Program Area Tags -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
+                                        </span>
+                                        {% endfor %}
                                         <!-- Subtopic Tags -->
                                         {% for subtopic in pub.subtopics %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 5px;">
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
                                             {{ subtopic }}
                                         </span>
                                         {% endfor %}
                                     </td>
                                 </tr>
-                                {% endif %}
                                 {% if pub.regions %}
                                 <tr>
-                                    <td style="padding-top: 6px;">
-                                        <!-- Region Tags -->
+                                    <td style="padding-top: 4px;">
                                         {% for region in pub.regions %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 5px;">
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
                                             {{ region }}
                                         </span>
                                         {% endfor %}
@@ -119,7 +135,6 @@
                                 {% if pub.abstract %}
                                 <tr>
                                     <td style="padding-top: 8px;">
-                                        <!-- Abstract -->
                                         <p style="margin: 0; color: #718096; font-size: 14px; line-height: 1.5;">
                                             {{ pub.abstract }}
                                         </p>
@@ -135,11 +150,96 @@
                                 </tr>
                             </table>
                             {% endfor %}
+                            {% endif %}
+
+                            <!-- Country Watch Sub-section -->
+                            {% if has_new_country_watch_pubs %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 25px;">
+                                <tr>
+                                    <td style="padding: 10px 15px; background-color: #fff5f5; border-left: 4px solid #e53e3e;">
+                                        <h3 style="margin: 0; color: #c53030; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Country Watch
+                                        </h3>
+                                        <p style="margin: 3px 0 0 0; color: #fc8181; font-size: 12px;">
+                                            {{ new_country_watch_count }} publication{% if new_country_watch_count != 1 %}s{% endif %}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% for pub in new_country_watch_pubs %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 15px; padding-left: 10px;">
+                                <tr>
+                                    <td>
+                                        <!-- Source Badge -->
+                                        <span style="display: inline-block; padding: 3px 8px; background-color: {% if pub.source == 'WHO' %}#ebf8ff{% else %}#f0fff4{% endif %}; color: {% if pub.source == 'WHO' %}#2b6cb0{% else %}#276749{% endif %}; font-size: 11px; font-weight: 600; border-radius: 3px; text-transform: uppercase;">
+                                            {{ pub.source }}
+                                        </span>
+                                        {% if pub.date %}
+                                        <span style="color: #a0aec0; font-size: 12px; margin-left: 10px;">
+                                            {{ pub.date.strftime('%B %d, %Y') }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 8px;">
+                                        <a href="{{ pub.url }}" style="color: #2d3748; font-size: 15px; font-weight: 600; text-decoration: none; line-height: 1.4;">
+                                            {{ pub.title }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 6px;">
+                                        <!-- Program Area Tags (health topics) -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
+                                        </span>
+                                        {% endfor %}
+                                        <!-- Subtopic Tags -->
+                                        {% for subtopic in pub.subtopics %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ subtopic }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% if pub.regions %}
+                                <tr>
+                                    <td style="padding-top: 4px;">
+                                        {% for region in pub.regions %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ region }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if pub.abstract %}
+                                <tr>
+                                    <td style="padding-top: 8px;">
+                                        <p style="margin: 0; color: #718096; font-size: 14px; line-height: 1.5;">
+                                            {{ pub.abstract }}
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td style="padding-top: 10px;">
+                                        <a href="{{ pub.url }}" style="color: #c53030; font-size: 13px; text-decoration: none;">
+                                            Read more &rarr;
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endfor %}
+                            {% endif %}
                         </td>
                     </tr>
                     {% endif %}
 
-                    <!-- Section 2: In Case You Missed It -->
+                    <!-- ========== Section 2: In Case You Missed It ========== -->
                     {% if has_icymi_publications %}
                     <tr>
                         <td style="background-color: #fefcfb; padding: 25px 40px; border-bottom: 1px solid #e2e8f0;">
@@ -157,12 +257,25 @@
                                 </tr>
                             </table>
 
-                            <!-- ICYMI Publications -->
-                            {% for pub in icymi_publications %}
+                            <!-- Program Subscriptions Sub-section -->
+                            {% if has_icymi_program_pubs %}
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px;">
                                 <tr>
+                                    <td style="padding: 10px 15px; background-color: #fffaf0; border-left: 4px solid #ed8936;">
+                                        <h3 style="margin: 0; color: #c05621; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Program Subscriptions
+                                        </h3>
+                                        <p style="margin: 3px 0 0 0; color: #ed8936; font-size: 12px;">
+                                            {{ icymi_program_count }} publication{% if icymi_program_count != 1 %}s{% endif %}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% for pub in icymi_program_pubs %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 15px; padding-left: 10px;">
+                                <tr>
                                     <td>
-                                        <!-- Source Badge -->
                                         <span style="display: inline-block; padding: 3px 8px; background-color: {% if pub.source == 'WHO' %}#ebf8ff{% else %}#f0fff4{% endif %}; color: {% if pub.source == 'WHO' %}#2b6cb0{% else %}#276749{% endif %}; font-size: 11px; font-weight: 600; border-radius: 3px; text-transform: uppercase;">
                                             {{ pub.source }}
                                         </span>
@@ -175,30 +288,30 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 8px;">
-                                        <!-- Title -->
                                         <a href="{{ pub.url }}" style="color: #2d3748; font-size: 15px; font-weight: 600; text-decoration: none; line-height: 1.4;">
                                             {{ pub.title }}
                                         </a>
                                     </td>
                                 </tr>
-                                {% if pub.subtopics %}
                                 <tr>
                                     <td style="padding-top: 6px;">
-                                        <!-- Subtopic Tags -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
+                                        </span>
+                                        {% endfor %}
                                         {% for subtopic in pub.subtopics %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 5px;">
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
                                             {{ subtopic }}
                                         </span>
                                         {% endfor %}
                                     </td>
                                 </tr>
-                                {% endif %}
                                 {% if pub.regions %}
                                 <tr>
-                                    <td style="padding-top: 6px;">
-                                        <!-- Region Tags -->
+                                    <td style="padding-top: 4px;">
                                         {% for region in pub.regions %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 5px;">
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
                                             {{ region }}
                                         </span>
                                         {% endfor %}
@@ -208,7 +321,6 @@
                                 {% if pub.abstract %}
                                 <tr>
                                     <td style="padding-top: 8px;">
-                                        <!-- Abstract -->
                                         <p style="margin: 0; color: #718096; font-size: 14px; line-height: 1.5;">
                                             {{ pub.abstract }}
                                         </p>
@@ -224,6 +336,88 @@
                                 </tr>
                             </table>
                             {% endfor %}
+                            {% endif %}
+
+                            <!-- Country Watch Sub-section -->
+                            {% if has_icymi_country_watch_pubs %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 25px;">
+                                <tr>
+                                    <td style="padding: 10px 15px; background-color: #fff5f5; border-left: 4px solid #e53e3e;">
+                                        <h3 style="margin: 0; color: #c53030; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Country Watch
+                                        </h3>
+                                        <p style="margin: 3px 0 0 0; color: #fc8181; font-size: 12px;">
+                                            {{ icymi_country_watch_count }} publication{% if icymi_country_watch_count != 1 %}s{% endif %}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% for pub in icymi_country_watch_pubs %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 15px; padding-left: 10px;">
+                                <tr>
+                                    <td>
+                                        <span style="display: inline-block; padding: 3px 8px; background-color: {% if pub.source == 'WHO' %}#ebf8ff{% else %}#f0fff4{% endif %}; color: {% if pub.source == 'WHO' %}#2b6cb0{% else %}#276749{% endif %}; font-size: 11px; font-weight: 600; border-radius: 3px; text-transform: uppercase;">
+                                            {{ pub.source }}
+                                        </span>
+                                        {% if pub.date %}
+                                        <span style="color: #a0aec0; font-size: 12px; margin-left: 10px;">
+                                            {{ pub.date.strftime('%B %d, %Y') }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 8px;">
+                                        <a href="{{ pub.url }}" style="color: #2d3748; font-size: 15px; font-weight: 600; text-decoration: none; line-height: 1.4;">
+                                            {{ pub.title }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 6px;">
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
+                                        </span>
+                                        {% endfor %}
+                                        {% for subtopic in pub.subtopics %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ subtopic }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% if pub.regions %}
+                                <tr>
+                                    <td style="padding-top: 4px;">
+                                        {% for region in pub.regions %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ region }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if pub.abstract %}
+                                <tr>
+                                    <td style="padding-top: 8px;">
+                                        <p style="margin: 0; color: #718096; font-size: 14px; line-height: 1.5;">
+                                            {{ pub.abstract }}
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td style="padding-top: 10px;">
+                                        <a href="{{ pub.url }}" style="color: #c53030; font-size: 13px; text-decoration: none;">
+                                            Read more &rarr;
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endfor %}
+                            {% endif %}
                         </td>
                     </tr>
                     {% endif %}
@@ -234,19 +428,37 @@
                             <p style="margin: 0; color: #718096; font-size: 13px; line-height: 1.6;">
                                 You're receiving this digest based on your preferences:
                             </p>
-                            {% if subscribed_areas %}
-                            <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
-                                <strong style="color: #4a5568;">Program Areas:</strong> {{ subscribed_areas|join(', ') }}
+                            {% if program_subscriptions %}
+                            <p style="margin: 8px 0 0 0; color: #4a5568; font-size: 13px; font-weight: 600;">
+                                Program Subscriptions:
+                            </p>
+                            {% for sub in program_subscriptions %}
+                            <p style="margin: 4px 0 0 12px; color: #718096; font-size: 13px; line-height: 1.5;">
+                                &bull; {{ sub.program_name }}
+                                {% if sub.subtopics %}
+                                <span style="color: #48bb78;">({{ sub.subtopics|join(', ') }})</span>
+                                {% elif sub.all_subtopics %}
+                                <span style="color: #48bb78;">(All topics)</span>
+                                {% endif %}
+                                {% if sub.location_filter %}
+                                <br><span style="margin-left: 12px; color: #805ad5; font-size: 12px;">&rarr; {{ sub.location_filter }}</span>
+                                {% endif %}
+                            </p>
+                            {% endfor %}
+                            {% endif %}
+                            {% if subscribed_regions or watched_countries %}
+                            <p style="margin: 12px 0 0 0; color: #c05621; font-size: 13px; font-weight: 600;">
+                                Country Watch:
                             </p>
                             {% endif %}
                             {% if subscribed_regions %}
-                            <p style="margin: 5px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
-                                <strong style="color: #c05621;">Watching Regions:</strong> {{ subscribed_regions|join(', ') }}
+                            <p style="margin: 4px 0 0 12px; color: #718096; font-size: 13px; line-height: 1.5;">
+                                &bull; Regions: {{ subscribed_regions|join(', ') }}
                             </p>
                             {% endif %}
                             {% if watched_countries %}
-                            <p style="margin: 5px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
-                                <strong style="color: #c05621;">Watching Countries:</strong> {{ watched_countries|join(', ') }}
+                            <p style="margin: 4px 0 0 12px; color: #718096; font-size: 13px; line-height: 1.5;">
+                                &bull; Countries: {{ watched_countries|join(', ') }}
                             </p>
                             {% endif %}
 

@@ -14,7 +14,7 @@
                 <h2>Program Subscriptions</h2>
                 <span class="section-badge">By Health Topic</span>
             </div>
-            <p class="section-hint">Subscribe to health program areas you're interested in. You'll receive publications that match these topics.</p>
+            <p class="section-hint">Subscribe to health program areas you're interested in. Optionally filter by location.</p>
 
             {% for category, programs in program_areas_with_subtopics.items() %}
             <div class="category-section">
@@ -22,69 +22,148 @@
 
                 {% for program_key, program_info in programs.items() %}
                 {% set program_prefs = [] %}
+                {% set program_locations = {} %}
                 {% for pref in user_program_prefs if pref.program_area_key == program_key %}
                     {% set _ = program_prefs.append(pref.subtopic_key) %}
+                    {% if pref.locations %}
+                        {% set _ = program_locations.update({'type': pref.locations[0].location_type if pref.locations else 'all', 'values': pref.locations|map(attribute='location_value')|list}) %}
+                    {% endif %}
                 {% endfor %}
+                {% set loc_type = program_locations.get('type', 'all') %}
+                {% set loc_values = program_locations.get('values', []) %}
 
                 <div class="program-area-container" data-program="{{ program_key }}">
-                    <div class="program-header" onclick="toggleSubtopics('{{ program_key }}')">
+                    <div class="program-header" onclick="toggleProgram('{{ program_key }}')">
                         <span class="expand-icon" id="icon-{{ program_key }}">▶</span>
                         <span class="program-name">{{ program_info.name }}</span>
                         <span class="selection-summary" id="summary-{{ program_key }}">
                             {% if program_prefs %}
                                 {% if None in program_prefs %}
-                                    (All selected)
+                                    (All selected{% if loc_type != 'all' %}, {{ loc_values|length }} {{ loc_type }}{% if loc_values|length != 1 %}s{% endif %}{% endif %})
                                 {% else %}
-                                    ({{ program_prefs|length }} subtopic{% if program_prefs|length != 1 %}s{% endif %})
+                                    ({{ program_prefs|length }} subtopic{% if program_prefs|length != 1 %}s{% endif %}{% if loc_type != 'all' %}, {{ loc_values|length }} {{ loc_type }}{% if loc_values|length != 1 %}s{% endif %}{% endif %})
                                 {% endif %}
                             {% endif %}
                         </span>
                     </div>
 
-                    <div class="subtopics-container" id="subtopics-{{ program_key }}" style="display: none;">
-                        <!-- All Subtopics option -->
-                        <label class="checkbox-label subtopic-all">
-                            <input type="checkbox"
-                                   name="programs"
-                                   value="{{ program_key }}"
-                                   id="all-{{ program_key }}"
-                                   onchange="handleAllSubtopics('{{ program_key }}')"
-                                   {% if None in program_prefs %}checked{% endif %}>
-                            <span class="checkbox-text"><strong>All Subtopics</strong></span>
-                        </label>
+                    <div class="program-content" id="content-{{ program_key }}" style="display: none;">
+                        <!-- Subtopics Section -->
+                        <div class="subtopics-section">
+                            <h4>Subtopics</h4>
+                            <label class="checkbox-label subtopic-all">
+                                <input type="checkbox"
+                                       name="programs"
+                                       value="{{ program_key }}"
+                                       id="all-{{ program_key }}"
+                                       onchange="handleAllSubtopics('{{ program_key }}')"
+                                       {% if None in program_prefs %}checked{% endif %}>
+                                <span class="checkbox-text"><strong>All Subtopics</strong></span>
+                            </label>
 
-                        <!-- Individual subtopics -->
-                        {% for subtopic_key, subtopic_name in program_info.subtopics.items() %}
-                        <label class="checkbox-label subtopic-item">
-                            <input type="checkbox"
-                                   name="programs"
-                                   value="{{ program_key }}__{{ subtopic_key }}"
-                                   class="subtopic-checkbox-{{ program_key }}"
-                                   onchange="handleSubtopicChange('{{ program_key }}')"
-                                   {% if subtopic_key in program_prefs %}checked{% endif %}
-                                   {% if None in program_prefs %}disabled{% endif %}>
-                            <span class="checkbox-text">{{ subtopic_name }}</span>
-                        </label>
-                        {% endfor %}
+                            <div class="subtopics-grid">
+                                {% for subtopic_key, subtopic_name in program_info.subtopics.items() %}
+                                <label class="checkbox-label subtopic-item">
+                                    <input type="checkbox"
+                                           name="programs"
+                                           value="{{ program_key }}__{{ subtopic_key }}"
+                                           class="subtopic-checkbox-{{ program_key }}"
+                                           onchange="handleSubtopicChange('{{ program_key }}')"
+                                           {% if subtopic_key in program_prefs %}checked{% endif %}
+                                           {% if None in program_prefs %}disabled{% endif %}>
+                                    <span class="checkbox-text">{{ subtopic_name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Location Filter Section -->
+                        <div class="location-filter-section">
+                            <h4>Filter by Location (Optional)</h4>
+                            <div class="location-type-radios">
+                                <label class="radio-label">
+                                    <input type="radio"
+                                           name="{{ program_key }}__location_type"
+                                           value="all"
+                                           onchange="handleLocationTypeChange('{{ program_key }}', 'all')"
+                                           {% if loc_type == 'all' %}checked{% endif %}>
+                                    <span class="radio-text">All Locations</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio"
+                                           name="{{ program_key }}__location_type"
+                                           value="region"
+                                           onchange="handleLocationTypeChange('{{ program_key }}', 'region')"
+                                           {% if loc_type == 'region' %}checked{% endif %}>
+                                    <span class="radio-text">By Region</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio"
+                                           name="{{ program_key }}__location_type"
+                                           value="country"
+                                           onchange="handleLocationTypeChange('{{ program_key }}', 'country')"
+                                           {% if loc_type == 'country' %}checked{% endif %}>
+                                    <span class="radio-text">By Country</span>
+                                </label>
+                            </div>
+
+                            <!-- Region Checkboxes -->
+                            <div class="location-options region-options" id="regions-{{ program_key }}" style="display: {% if loc_type == 'region' %}block{% else %}none{% endif %};">
+                                <p class="filter-hint">Select one or more regions:</p>
+                                <div class="checkbox-grid">
+                                    {% for key, name in region_choices %}
+                                        {% if key != 'global' %}
+                                        <label class="checkbox-label">
+                                            <input type="checkbox"
+                                                   name="{{ program_key }}__locations"
+                                                   value="{{ key }}"
+                                                   class="region-checkbox-{{ program_key }}"
+                                                   {% if loc_type == 'region' and key in loc_values %}checked{% endif %}>
+                                            <span class="checkbox-text">{{ name }}</span>
+                                        </label>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Country Checkboxes (grouped by region) -->
+                            <div class="location-options country-options" id="countries-{{ program_key }}" style="display: {% if loc_type == 'country' %}block{% else %}none{% endif %};">
+                                <p class="filter-hint">Select one or more countries:</p>
+                                <div class="country-filter-search">
+                                    <input type="text"
+                                           class="country-filter-input"
+                                           id="country-filter-{{ program_key }}"
+                                           placeholder="Type to filter countries..."
+                                           oninput="filterCountries('{{ program_key }}')">
+                                </div>
+                                <div class="countries-grid" id="countries-grid-{{ program_key }}">
+                                    {% for region_key, region_name in region_choices %}
+                                        {% if region_key != 'global' %}
+                                        <div class="country-region-group" data-region="{{ region_key }}">
+                                            <h5 class="country-region-header">{{ region_name }}</h5>
+                                            <div class="country-region-countries">
+                                                {% for country in countries_by_region.get(region_key, []) %}
+                                                <label class="checkbox-label country-checkbox-label" data-country="{{ country|lower }}">
+                                                    <input type="checkbox"
+                                                           name="{{ program_key }}__locations"
+                                                           value="{{ country }}"
+                                                           class="country-checkbox-{{ program_key }}"
+                                                           {% if loc_type == 'country' and country in loc_values %}checked{% endif %}>
+                                                    <span class="checkbox-text">{{ country }}</span>
+                                                </label>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% endfor %}
-
-            <!-- Region Filter for Program Subscriptions -->
-            <div class="region-filter-section">
-                <h3>Region Filter (Optional)</h3>
-                <p class="filter-hint">Optionally limit your program subscriptions to publications about a specific region:</p>
-                <select name="program_region_filter" class="region-filter-select">
-                    <option value="">All Regions (No Filter)</option>
-                    {% for key, name in region_choices %}
-                        {% if key != 'global' %}
-                        <option value="{{ key }}" {% if current_program_region_filter == key %}selected{% endif %}>{{ name }}</option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
         </div>
 
         <!-- ========== SECTION 2: COUNTRY WATCH ========== -->
@@ -123,14 +202,14 @@
                             {% for country in selected_watch_countries %}
                             <span class="country-tag">
                                 {{ country }}
-                                <button type="button" class="remove-country" onclick="removeCountry('{{ country }}')">&times;</button>
+                                <button type="button" class="remove-country" onclick="removeWatchCountry('{{ country }}')">&times;</button>
                                 <input type="hidden" name="watch_countries" value="{{ country }}">
                             </span>
                             {% endfor %}
                         </div>
                         <div class="country-dropdown" id="country-dropdown" style="display: none;">
                             {% for country in country_choices %}
-                            <div class="country-option" data-country="{{ country }}" onclick="selectCountry('{{ country }}')">
+                            <div class="country-option" data-country="{{ country }}" onclick="selectWatchCountry('{{ country }}')">
                                 {{ country }}
                             </div>
                             {% endfor %}
@@ -248,45 +327,102 @@
         color: #2c5282;
         font-weight: 500;
     }
-    .subtopics-container {
-        padding: 10px 15px 15px 35px;
+    .program-content {
+        padding: 15px;
         background-color: #ffffff;
         border-top: 1px solid #e2e8f0;
+    }
+    .subtopics-section {
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .subtopics-section h4, .location-filter-section h4 {
+        color: #4a5568;
+        font-size: 0.95rem;
+        margin: 0 0 12px 0;
     }
     .subtopic-all {
         margin-bottom: 10px;
         padding-bottom: 10px;
         border-bottom: 1px dashed #e2e8f0;
     }
-    .subtopic-item {
+    .subtopics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 8px;
         margin-left: 15px;
     }
     .checkbox-label input:disabled + .checkbox-text {
         color: #a0aec0;
     }
-    .region-filter-section {
-        margin-top: 25px;
-        padding-top: 20px;
-        border-top: 1px solid #e2e8f0;
+    .location-filter-section {
+        background-color: #f7fafc;
+        padding: 15px;
+        border-radius: 8px;
     }
-    .region-filter-section h3 {
-        color: #4a5568;
-        font-size: 1rem;
-        margin-bottom: 8px;
+    .location-type-radios {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+    }
+    .location-options {
+        padding: 15px;
+        background-color: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        margin-top: 10px;
     }
     .filter-hint {
         color: #718096;
         font-size: 0.9rem;
         margin-bottom: 12px;
     }
-    .region-filter-select {
+    .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px;
+    }
+    .country-filter-search {
+        margin-bottom: 15px;
+    }
+    .country-filter-input {
         width: 100%;
-        max-width: 400px;
-        padding: 10px 12px;
+        max-width: 300px;
+        padding: 8px 12px;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 1rem;
-        background-color: #fff;
+        font-size: 0.9rem;
+    }
+    .countries-grid {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .country-region-group {
+        margin-bottom: 15px;
+    }
+    .country-region-header {
+        color: #2c5282;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .country-region-countries {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 4px;
+        margin-left: 10px;
+    }
+    .country-checkbox-label {
+        font-size: 0.9rem;
+    }
+    .country-checkbox-label.hidden {
+        display: none;
+    }
+    .country-region-group.hidden {
+        display: none;
     }
     .watch-subsection {
         margin-bottom: 25px;
@@ -366,20 +502,21 @@
 </style>
 
 <script>
-    // Program subtopics functionality
-    function toggleSubtopics(programKey) {
-        const container = document.getElementById('subtopics-' + programKey);
+    // Toggle program expansion
+    function toggleProgram(programKey) {
+        const content = document.getElementById('content-' + programKey);
         const icon = document.getElementById('icon-' + programKey);
 
-        if (container.style.display === 'none') {
-            container.style.display = 'block';
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
             icon.classList.add('expanded');
         } else {
-            container.style.display = 'none';
+            content.style.display = 'none';
             icon.classList.remove('expanded');
         }
     }
 
+    // Handle "All Subtopics" checkbox
     function handleAllSubtopics(programKey) {
         const allCheckbox = document.getElementById('all-' + programKey);
         const subtopicCheckboxes = document.querySelectorAll('.subtopic-checkbox-' + programKey);
@@ -397,6 +534,7 @@
         updateSummary(programKey);
     }
 
+    // Handle individual subtopic checkbox change
     function handleSubtopicChange(programKey) {
         const allCheckbox = document.getElementById('all-' + programKey);
         const subtopicCheckboxes = document.querySelectorAll('.subtopic-checkbox-' + programKey);
@@ -408,64 +546,137 @@
         updateSummary(programKey);
     }
 
+    // Handle location type radio change
+    function handleLocationTypeChange(programKey, locationType) {
+        const regionsDiv = document.getElementById('regions-' + programKey);
+        const countriesDiv = document.getElementById('countries-' + programKey);
+
+        // Hide all options first
+        regionsDiv.style.display = 'none';
+        countriesDiv.style.display = 'none';
+
+        // Clear checkboxes when switching types
+        if (locationType === 'all') {
+            document.querySelectorAll('.region-checkbox-' + programKey).forEach(cb => cb.checked = false);
+            document.querySelectorAll('.country-checkbox-' + programKey).forEach(cb => cb.checked = false);
+        } else if (locationType === 'region') {
+            regionsDiv.style.display = 'block';
+            document.querySelectorAll('.country-checkbox-' + programKey).forEach(cb => cb.checked = false);
+        } else if (locationType === 'country') {
+            countriesDiv.style.display = 'block';
+            document.querySelectorAll('.region-checkbox-' + programKey).forEach(cb => cb.checked = false);
+        }
+        updateSummary(programKey);
+    }
+
+    // Filter countries by search text
+    function filterCountries(programKey) {
+        const input = document.getElementById('country-filter-' + programKey);
+        const searchTerm = input.value.toLowerCase();
+        const grid = document.getElementById('countries-grid-' + programKey);
+        const groups = grid.querySelectorAll('.country-region-group');
+
+        groups.forEach(group => {
+            const labels = group.querySelectorAll('.country-checkbox-label');
+            let visibleCount = 0;
+
+            labels.forEach(label => {
+                const country = label.dataset.country;
+                if (country.includes(searchTerm)) {
+                    label.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    label.classList.add('hidden');
+                }
+            });
+
+            // Hide group if no visible countries
+            if (visibleCount === 0) {
+                group.classList.add('hidden');
+            } else {
+                group.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Update summary text for a program
     function updateSummary(programKey) {
         const allCheckbox = document.getElementById('all-' + programKey);
         const subtopicCheckboxes = document.querySelectorAll('.subtopic-checkbox-' + programKey);
         const summary = document.getElementById('summary-' + programKey);
 
-        if (allCheckbox.checked) {
-            summary.textContent = '(All selected)';
+        // Count selected subtopics
+        let subtopicText = '';
+        if (allCheckbox && allCheckbox.checked) {
+            subtopicText = 'All selected';
         } else {
             const checkedCount = Array.from(subtopicCheckboxes).filter(cb => cb.checked).length;
             if (checkedCount === 0) {
                 summary.textContent = '';
+                return;
             } else if (checkedCount === 1) {
-                summary.textContent = '(1 subtopic)';
+                subtopicText = '1 subtopic';
             } else {
-                summary.textContent = '(' + checkedCount + ' subtopics)';
+                subtopicText = checkedCount + ' subtopics';
             }
         }
+
+        // Count selected locations
+        const locationType = document.querySelector('input[name="' + programKey + '__location_type"]:checked');
+        let locationText = '';
+        if (locationType && locationType.value !== 'all') {
+            const locationCheckboxes = locationType.value === 'region'
+                ? document.querySelectorAll('.region-checkbox-' + programKey + ':checked')
+                : document.querySelectorAll('.country-checkbox-' + programKey + ':checked');
+            const locCount = locationCheckboxes.length;
+            if (locCount > 0) {
+                const type = locationType.value === 'region' ? 'region' : 'country';
+                locationText = ', ' + locCount + ' ' + type + (locCount !== 1 ? 's' : '');
+            }
+        }
+
+        summary.textContent = '(' + subtopicText + locationText + ')';
     }
 
-    // Country search functionality
+    // Country Watch functionality
     const countrySearch = document.getElementById('country-search');
     const countryDropdown = document.getElementById('country-dropdown');
     const selectedCountriesContainer = document.getElementById('selected-countries');
 
-    function getSelectedCountries() {
+    function getSelectedWatchCountries() {
         const tags = selectedCountriesContainer.querySelectorAll('.country-tag');
         return Array.from(tags).map(tag => tag.textContent.trim().replace('×', '').trim());
     }
 
-    function selectCountry(country) {
-        if (getSelectedCountries().includes(country)) return;
+    function selectWatchCountry(country) {
+        if (getSelectedWatchCountries().includes(country)) return;
 
         const tag = document.createElement('span');
         tag.className = 'country-tag';
         tag.innerHTML = `
             ${country}
-            <button type="button" class="remove-country" onclick="removeCountry('${country}')">&times;</button>
+            <button type="button" class="remove-country" onclick="removeWatchCountry('${country}')">&times;</button>
             <input type="hidden" name="watch_countries" value="${country}">
         `;
         selectedCountriesContainer.appendChild(tag);
 
         countrySearch.value = '';
         countryDropdown.style.display = 'none';
-        updateDropdownVisibility();
+        updateWatchDropdownVisibility();
     }
 
-    function removeCountry(country) {
+    function removeWatchCountry(country) {
         const tags = selectedCountriesContainer.querySelectorAll('.country-tag');
         tags.forEach(tag => {
             if (tag.textContent.trim().replace('×', '').trim() === country) {
                 tag.remove();
             }
         });
-        updateDropdownVisibility();
+        updateWatchDropdownVisibility();
     }
 
-    function updateDropdownVisibility() {
-        const selectedCountries = getSelectedCountries();
+    function updateWatchDropdownVisibility() {
+        const selectedCountries = getSelectedWatchCountries();
         const options = countryDropdown.querySelectorAll('.country-option');
         options.forEach(option => {
             if (selectedCountries.includes(option.dataset.country)) {
@@ -478,13 +689,13 @@
 
     countrySearch.addEventListener('focus', function() {
         countryDropdown.style.display = 'block';
-        updateDropdownVisibility();
+        updateWatchDropdownVisibility();
     });
 
     countrySearch.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
         const options = countryDropdown.querySelectorAll('.country-option');
-        const selectedCountries = getSelectedCountries();
+        const selectedCountries = getSelectedWatchCountries();
 
         options.forEach(option => {
             const country = option.dataset.country.toLowerCase();
@@ -504,16 +715,16 @@
         }
     });
 
-    // Expand sections with selections on page load
+    // Expand programs with selections on page load
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.program-area-container').forEach(container => {
             const programKey = container.dataset.program;
             const summary = document.getElementById('summary-' + programKey);
             if (summary && summary.textContent.trim()) {
-                toggleSubtopics(programKey);
+                toggleProgram(programKey);
             }
         });
-        updateDropdownVisibility();
+        updateWatchDropdownVisibility();
     });
 </script>
 {% endblock %}

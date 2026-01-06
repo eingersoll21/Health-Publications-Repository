@@ -3,7 +3,8 @@ Database models for the CHAI Health Publications Tracker.
 
 This file defines all database tables:
 - User: Registered users with their preferences
-- UserProgramPreference: Links users to health programs (with optional subtopics and region filter)
+- UserProgramPreference: Links users to health programs (with optional subtopics)
+- UserProgramPreferenceLocation: Links program preferences to location filters (regions or countries)
 - UserCountryWatch: Links users to countries/regions they want ALL publications for
 - Publication: Publications from WHO and PubMed
 - PublicationProgramArea: Links publications to relevant program areas
@@ -78,16 +79,22 @@ class User(UserMixin, db.Model):
 
     def get_program_preferences_detail(self):
         """
-        Get detailed program preferences including subtopic and region selections.
+        Get detailed program preferences including subtopic and location filter selections.
 
         Returns:
-            List of dicts with program_area_key, subtopic_key, and region_key.
+            List of dicts with program_area_key, subtopic_key, and locations list.
         """
         return [
             {
                 'program_area_key': pref.program_area_key,
                 'subtopic_key': pref.subtopic_key,
-                'region_key': pref.region_key
+                'locations': [
+                    {
+                        'location_type': loc.location_type,
+                        'location_value': loc.location_value
+                    }
+                    for loc in pref.locations
+                ]
             }
             for pref in self.program_preferences
         ]
@@ -121,8 +128,9 @@ class UserProgramPreference(db.Model):
 
     If subtopic_key is NULL, user wants ALL subtopics within that program area.
     If subtopic_key is set, user only wants that specific subtopic.
-    If region_key is set, only get publications that match that region.
-    If region_key is NULL, get publications from any region.
+
+    Location filtering is handled by the related UserProgramPreferenceLocation table.
+    If no location rows exist, publications from any location are included.
 
     One user can have multiple entries for the same program area with different subtopics.
     """
@@ -137,21 +145,70 @@ class UserProgramPreference(db.Model):
     )
     program_area_key = db.Column(db.String(50), nullable=False, index=True)
     subtopic_key = db.Column(db.String(50), nullable=True, index=True)  # NULL = all subtopics
-    region_key = db.Column(db.String(50), nullable=True, index=True)  # NULL = all regions
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Ensure a user can only select each program/subtopic/region combination once
-    __table_args__ = (
-        db.UniqueConstraint('user_id', 'program_area_key', 'subtopic_key', 'region_key',
-                           name='unique_user_program_subtopic_region'),
+    # Relationship to location filters
+    locations = db.relationship(
+        'UserProgramPreferenceLocation',
+        backref='preference',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
     )
+
+    # Ensure a user can only select each program/subtopic combination once
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'program_area_key', 'subtopic_key',
+                           name='unique_user_program_subtopic'),
+    )
+
+    def get_location_filter_type(self):
+        """Get the type of location filter: 'all', 'region', or 'country'."""
+        first_loc = self.locations.first()
+        if not first_loc:
+            return 'all'
+        return first_loc.location_type
+
+    def get_location_values(self):
+        """Get list of location values for this preference."""
+        return [loc.location_value for loc in self.locations]
 
     def __repr__(self):
         parts = [str(self.user_id), self.program_area_key]
         parts.append(self.subtopic_key or 'ALL')
-        if self.region_key:
-            parts.append(self.region_key)
+        loc_count = self.locations.count()
+        if loc_count > 0:
+            parts.append(f'{loc_count} locations')
         return f'<UserProgramPreference {":".join(parts)}>'
+
+
+class UserProgramPreferenceLocation(db.Model):
+    """
+    Links a program preference to a location filter (region or country).
+
+    Each program subscription can have multiple location filters of the same type.
+    location_type is either 'region' or 'country'.
+    location_value is the region key (e.g., 'sub_saharan_africa') or country name (e.g., 'Kenya').
+    """
+    __tablename__ = 'user_program_preference_locations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    program_preference_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user_program_preferences.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    location_type = db.Column(db.String(20), nullable=False)  # 'region' or 'country'
+    location_value = db.Column(db.String(100), nullable=False)  # region key or country name
+
+    # Ensure unique location per preference
+    __table_args__ = (
+        db.UniqueConstraint('program_preference_id', 'location_type', 'location_value',
+                           name='unique_preference_location'),
+    )
+
+    def __repr__(self):
+        return f'<UserProgramPreferenceLocation {self.program_preference_id}:{self.location_type}:{self.location_value}>'
 
 
 class UserCountryWatch(db.Model):
