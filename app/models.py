@@ -263,6 +263,8 @@ class Publication(db.Model):
     publication_date = db.Column(db.Date, nullable=True)
     url = db.Column(db.String(500), nullable=False)
     publication_type = db.Column(db.String(100), nullable=True)
+    is_ahead_of_print = db.Column(db.Boolean, default=False, nullable=False)
+    resurfaced_at = db.Column(db.DateTime, nullable=True)  # When ahead-of-print was resurfaced after official date
     scraped_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships

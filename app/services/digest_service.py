@@ -420,13 +420,99 @@ def get_country_watch_publications(user, days_back=30, max_publications=None):
     return results
 
 
+def get_resurfaced_publications(user, max_publications=None):
+    """
+    Find ahead-of-print publications that should be resurfaced.
+
+    A publication should be resurfaced if:
+    - It was previously sent to this user (exists in DigestLog)
+    - It is an ahead-of-print publication (is_ahead_of_print = True)
+    - Its publication_date is now in the past (official date has arrived)
+    - It hasn't been resurfaced yet (resurfaced_at IS NULL)
+
+    Args:
+        user: User object
+        max_publications: Maximum number of publications to return
+
+    Returns:
+        List of dicts with publication data marked with is_resurfaced=True
+    """
+    if max_publications is None:
+        max_publications = Config.MAX_PUBLICATIONS_PER_DIGEST
+
+    today = date.today()
+
+    # Find publication IDs that were previously sent to this user
+    sent_pub_ids = db.session.query(DigestLog.publication_id).filter(
+        DigestLog.user_id == user.id
+    ).subquery()
+
+    # Find ahead-of-print publications that are now published and haven't been resurfaced
+    resurfaced_pubs = db.session.query(Publication).filter(
+        Publication.id.in_(sent_pub_ids),
+        Publication.is_ahead_of_print == True,
+        Publication.publication_date <= today,
+        Publication.resurfaced_at.is_(None)
+    ).all()
+
+    if not resurfaced_pubs:
+        return []
+
+    pub_dict = {}
+    for pub in resurfaced_pubs:
+        pub_dict[pub.id] = {
+            'publication': pub,
+            'program_areas': [],
+            'subtopics': [],
+            'regions': [],
+            'is_resurfaced': True
+        }
+
+        # Get program areas
+        areas = PublicationProgramArea.query.filter_by(publication_id=pub.id).all()
+        for area in areas:
+            pub_dict[pub.id]['program_areas'].append({
+                'key': area.program_area_key,
+                'name': get_program_area_name(area.program_area_key),
+                'score': area.relevance_score
+            })
+
+        # Get subtopics
+        subtopics = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
+        for st in subtopics:
+            pub_dict[pub.id]['subtopics'].append({
+                'program_key': st.program_area_key,
+                'subtopic_key': st.subtopic_key,
+                'name': get_subtopic_name(st.program_area_key, st.subtopic_key),
+                'score': st.relevance_score
+            })
+
+        # Get regions
+        regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
+        for region in regions:
+            pub_dict[pub.id]['regions'].append({
+                'key': region.region_key,
+                'name': get_region_name(region.region_key),
+                'matched_terms': region.matched_terms
+            })
+
+    results = list(pub_dict.values())
+    results.sort(key=_get_max_score, reverse=True)
+    results = results[:max_publications]
+
+    logger.info(f"Found {len(results)} resurfaced publications for user {user.email}")
+    return results
+
+
 def get_publications_for_user(user, days_back=30, max_publications=None):
     """
-    Find all publications matching user's subscriptions that haven't been sent yet.
+    Find all publications matching user's subscriptions that haven't been sent yet,
+    plus ahead-of-print publications that are now officially published (resurfaced).
 
     Combines results from:
     1. Program Subscriptions (health topic-based)
     2. Country Watch (geography-based)
+    3. Resurfaced publications (ahead-of-print now published)
 
     Args:
         user: User object
@@ -443,12 +529,22 @@ def get_publications_for_user(user, days_back=30, max_publications=None):
     program_pubs = get_program_subscription_publications(user, days_back, max_publications)
     country_watch_pubs = get_country_watch_publications(user, days_back, max_publications)
 
+    # Get resurfaced publications (ahead-of-print that are now officially published)
+    resurfaced_pubs = get_resurfaced_publications(user, max_publications)
+
     # Combine and deduplicate
     pub_dict = {}
 
-    for pub_data in program_pubs:
+    # Add resurfaced publications first (they get priority in "New This Week")
+    for pub_data in resurfaced_pubs:
         pub_id = pub_data['publication'].id
         pub_dict[pub_id] = pub_data
+        pub_dict[pub_id]['is_resurfaced'] = True
+
+    for pub_data in program_pubs:
+        pub_id = pub_data['publication'].id
+        if pub_id not in pub_dict:
+            pub_dict[pub_id] = pub_data
         pub_dict[pub_id]['from_program_sub'] = True
 
     for pub_data in country_watch_pubs:
@@ -638,8 +734,14 @@ def format_publication_for_display(pub_data):
 
     Returns:
         Dict formatted for template display
+
+    Tag logic:
+        - is_ahead_of_print=True and publication_date is in future → "Ahead of Print" (amber)
+        - is_ahead_of_print=True and is_resurfaced=True → "Now Published" (green)
+        - Otherwise → no special tag
     """
     pub = pub_data['publication']
+    today = date.today()
 
     # Get the highest relevance score
     max_score = _get_max_score(pub_data)
@@ -651,11 +753,22 @@ def format_publication_for_display(pub_data):
     region_names = [r['name'] for r in pub_data.get('regions', [])]
     subtopic_names = [st['name'] for st in pub_data.get('subtopics', [])]
 
+    # Determine tag display:
+    # - show_ahead_of_print: True if ahead-of-print AND date is still in the future
+    # - is_resurfaced: True if this is a resurfaced publication (now officially published)
+    is_ahead_of_print = getattr(pub, 'is_ahead_of_print', False)
+    is_resurfaced = pub_data.get('is_resurfaced', False)
+
+    # Only show "Ahead of Print" if the date is still in the future
+    show_ahead_of_print = is_ahead_of_print and pub.publication_date and pub.publication_date > today
+
     return {
         'title': pub.title,
         'url': pub.url,
         'source': pub.source,
         'date': pub.publication_date,
+        'is_ahead_of_print': show_ahead_of_print,  # Only True if date is in future
+        'is_resurfaced': is_resurfaced,  # True if now officially published
         'abstract': truncate_text(pub.abstract, 200) if pub.abstract else None,
         'authors': pub.authors,
         'relevance_score': max_score,
@@ -801,7 +914,12 @@ def create_plain_text_digest(context):
         pub_lines.append(f"* {pub['title']}")
         pub_lines.append(f"  Source: {pub['source']}")
         if pub['date']:
-            pub_lines.append(f"  Date: {pub['date'].strftime('%Y-%m-%d')}")
+            date_str = pub['date'].strftime('%B %Y')
+            if pub.get('is_ahead_of_print'):
+                date_str += " (Ahead of Print)"
+            elif pub.get('is_resurfaced'):
+                date_str += " (Now Published)"
+            pub_lines.append(f"  Date: {date_str}")
         # Show program areas and subtopics as tags
         tags = []
         if pub.get('program_areas'):
@@ -981,21 +1099,31 @@ def send_digest_to_user(user, base_url=None):
         )
 
         if email_sent:
-            # Log only the NEW publications (not ICYMI, as those were already logged)
+            # Log only the NEW publications (not ICYMI or resurfaced, as those were already logged)
             batch_id = str(uuid.uuid4())[:8]
+            resurfaced_count = 0
             for pub_data in new_publications:
-                log = DigestLog(
-                    user_id=user.id,
-                    publication_id=pub_data['publication'].id,
-                    digest_batch_id=batch_id
-                )
-                db.session.add(log)
+                pub = pub_data['publication']
+                is_resurfaced = pub_data.get('is_resurfaced', False)
+
+                if is_resurfaced:
+                    # Mark as resurfaced so it won't appear again
+                    pub.resurfaced_at = datetime.utcnow()
+                    resurfaced_count += 1
+                else:
+                    # Only log truly new publications (not resurfaced ones)
+                    log = DigestLog(
+                        user_id=user.id,
+                        publication_id=pub.id,
+                        digest_batch_id=batch_id
+                    )
+                    db.session.add(log)
 
             # Update user's last_digest_sent
             user.last_digest_sent = datetime.utcnow()
             db.session.commit()
 
-            logger.info(f"Digest sent to {user.email}: {len(new_publications)} new, {len(icymi_publications)} ICYMI")
+            logger.info(f"Digest sent to {user.email}: {len(new_publications)} new ({resurfaced_count} resurfaced), {len(icymi_publications)} ICYMI")
             return {
                 'success': True,
                 'new_sent': len(new_publications),

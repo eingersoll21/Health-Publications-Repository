@@ -14,7 +14,7 @@ NCBI Usage Guidelines:
 import logging
 import time
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from Bio import Entrez
 
 from app.models import db, Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion
@@ -30,6 +30,30 @@ Entrez.tool = Config.PUBMED_TOOL
 
 # Rate limiting: NCBI allows max 3 requests/second
 REQUEST_DELAY = 0.4  # seconds between requests
+
+
+def check_ahead_of_print(pub_date, pmid=None):
+    """
+    Check if a publication date is in the future (ahead of print).
+
+    PubMed returns future dates for articles that are accepted but not yet
+    in a print issue. We preserve the original date but flag these articles.
+
+    Args:
+        pub_date: datetime.date object to check
+        pmid: PubMed ID for logging purposes (optional)
+
+    Returns:
+        Tuple of (pub_date, is_ahead_of_print)
+    """
+    if pub_date is None:
+        return None, False
+
+    today = date.today()
+    if pub_date > today:
+        logger.info(f"Ahead of print article detected - PMID {pmid}: scheduled for {pub_date}")
+        return pub_date, True
+    return pub_date, False
 
 
 def build_search_query(keywords):
@@ -245,6 +269,9 @@ def parse_pubmed_article(article):
             except (ValueError, TypeError):
                 pub_date = datetime.strptime(f"{year}-01-01", "%Y-%m-%d").date()
 
+        # Check if this is an ahead-of-print article (future date)
+        pub_date, is_ahead_of_print = check_ahead_of_print(pub_date, pmid)
+
         # Extract journal name
         journal_title = journal.get("Title", "")
 
@@ -258,6 +285,7 @@ def parse_pubmed_article(article):
             "authors": authors_str,
             "affiliations": affiliations_str if affiliations_str else None,
             "publication_date": pub_date,
+            "is_ahead_of_print": is_ahead_of_print,
             "url": url,
             "publication_type": "Research Article",
             "journal": journal_title
@@ -423,6 +451,7 @@ def save_publication(pub_data, program_areas, subtopics=None, regions=None):
             abstract=pub_data.get("abstract"),
             authors=pub_data.get("authors"),
             publication_date=pub_data.get("publication_date"),
+            is_ahead_of_print=pub_data.get("is_ahead_of_print", False),
             url=pub_data.get("url", ""),
             publication_type=pub_data.get("publication_type"),
         )

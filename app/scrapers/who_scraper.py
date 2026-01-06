@@ -13,7 +13,7 @@ Target pages:
 import logging
 import time
 import re
-from datetime import datetime
+from datetime import datetime, date
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
@@ -186,9 +186,10 @@ def parse_publication_page(url):
             date_elem = soup.select_one(selector)
             if date_elem:
                 date_str = date_elem.get("datetime") or date_elem.get("content") or date_elem.get_text(strip=True)
-                parsed_date = parse_date(date_str)
+                parsed_date, is_ahead_of_print = parse_date(date_str)
                 if parsed_date:
                     details["publication_date"] = parsed_date
+                    details["is_ahead_of_print"] = is_ahead_of_print
                     break
 
         # Extract authors if available
@@ -218,6 +219,27 @@ def parse_publication_page(url):
         return None
 
 
+def check_ahead_of_print(pub_date, url=None):
+    """
+    Check if a publication date is in the future (ahead of print).
+
+    Args:
+        pub_date: datetime.date object to check
+        url: Publication URL for logging purposes (optional)
+
+    Returns:
+        Tuple of (pub_date, is_ahead_of_print)
+    """
+    if pub_date is None:
+        return None, False
+
+    today = date.today()
+    if pub_date > today:
+        logger.info(f"Ahead of print article detected - {url}: scheduled for {pub_date}")
+        return pub_date, True
+    return pub_date, False
+
+
 def parse_date(date_str):
     """
     Parse various date formats into a date object.
@@ -226,10 +248,10 @@ def parse_date(date_str):
         date_str: Date string in various formats
 
     Returns:
-        datetime.date object or None
+        Tuple of (datetime.date or None, is_ahead_of_print boolean)
     """
     if not date_str:
-        return None
+        return None, False
 
     date_formats = [
         "%Y-%m-%d",
@@ -246,21 +268,25 @@ def parse_date(date_str):
     # Clean up the date string
     date_str = date_str.strip()
 
+    parsed_date = None
     for fmt in date_formats:
         try:
-            return datetime.strptime(date_str[:19], fmt).date()
+            parsed_date = datetime.strptime(date_str[:19], fmt).date()
+            break
         except ValueError:
             continue
 
     # Try to extract year at minimum
-    year_match = re.search(r"20[0-9]{2}", date_str)
-    if year_match:
-        try:
-            return datetime(int(year_match.group()), 1, 1).date()
-        except ValueError:
-            pass
+    if not parsed_date:
+        year_match = re.search(r"20[0-9]{2}", date_str)
+        if year_match:
+            try:
+                parsed_date = datetime(int(year_match.group()), 1, 1).date()
+            except ValueError:
+                pass
 
-    return None
+    # Check if ahead of print (future date)
+    return check_ahead_of_print(parsed_date, date_str)
 
 
 def categorize_publication(title, abstract=None):
@@ -415,6 +441,7 @@ def save_publication(pub_data, program_areas, subtopics=None, regions=None):
             abstract=pub_data.get("abstract"),
             authors=pub_data.get("authors"),
             publication_date=pub_data.get("publication_date"),
+            is_ahead_of_print=pub_data.get("is_ahead_of_print", False),
             url=pub_data.get("url", ""),
             publication_type=pub_data.get("publication_type"),
         )
