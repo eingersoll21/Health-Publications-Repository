@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Preferences - CHAI Health Publications Tracker{% endblock %}
+
+{% block content %}
+<div class="preferences-container">
+    <h1>Your Preferences</h1>
+    <p class="preferences-subtitle">Select the health topics and regions you want to follow and how often you'd like updates.</p>
+
+    <form method="POST" class="preferences-form">
+        <div class="form-section">
+            <h2>Health Topics</h2>
+            <p class="section-hint">Select the program areas you're interested in. Click on a topic to expand and choose specific subtopics:</p>
+
+            {% for category, programs in program_areas_with_subtopics.items() %}
+            <div class="category-section">
+                <h3 class="category-header">{{ category }}</h3>
+
+                {% for program_key, program_info in programs.items() %}
+                <div class="program-area-container" data-program="{{ program_key }}">
+                    <div class="program-header" onclick="toggleSubtopics('{{ program_key }}')">
+                        <span class="expand-icon" id="icon-{{ program_key }}">▶</span>
+                        <span class="program-name">{{ program_info.name }}</span>
+                        <span class="selection-summary" id="summary-{{ program_key }}">
+                            {% if program_key in user_program_prefs %}
+                                {% if None in user_program_prefs[program_key] %}
+                                    (All selected)
+                                {% else %}
+                                    ({{ user_program_prefs[program_key]|length }} subtopic{% if user_program_prefs[program_key]|length != 1 %}s{% endif %})
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="subtopics-container" id="subtopics-{{ program_key }}" style="display: none;">
+                        <!-- All Subtopics option -->
+                        <label class="checkbox-label subtopic-all">
+                            <input type="checkbox"
+                                   name="programs"
+                                   value="{{ program_key }}"
+                                   id="all-{{ program_key }}"
+                                   onchange="handleAllSubtopics('{{ program_key }}')"
+                                   {% if program_key in user_program_prefs and None in user_program_prefs[program_key] %}checked{% endif %}>
+                            <span class="checkbox-text"><strong>All Subtopics</strong></span>
+                        </label>
+
+                        <!-- Individual subtopics -->
+                        {% for subtopic_key, subtopic_name in program_info.subtopics.items() %}
+                        <label class="checkbox-label subtopic-item">
+                            <input type="checkbox"
+                                   name="programs"
+                                   value="{{ program_key }}__{{ subtopic_key }}"
+                                   class="subtopic-checkbox-{{ program_key }}"
+                                   onchange="handleSubtopicChange('{{ program_key }}')"
+                                   {% if program_key in user_program_prefs and subtopic_key in user_program_prefs[program_key] %}checked{% endif %}
+                                   {% if program_key in user_program_prefs and None in user_program_prefs[program_key] %}disabled{% endif %}>
+                            <span class="checkbox-text">{{ subtopic_name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="form-section">
+            <h2>Geographic Regions</h2>
+            <p class="section-hint">Select the regions you're interested in (optional):</p>
+
+            <div class="checkbox-grid">
+                {% for key, name in region_choices %}
+                <label class="checkbox-label">
+                    <input type="checkbox" name="regions" value="{{ key }}"
+                           {% if key in selected_region_keys %}checked{% endif %}>
+                    <span class="checkbox-text">{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Filter Mode</h2>
+            <p class="section-hint">How should we combine your program area and region preferences?</p>
+
+            <div class="radio-group">
+                {% for key, description in filter_modes.items() %}
+                <label class="radio-label">
+                    <input type="radio" name="filter_mode" value="{{ key }}"
+                           {% if key == current_filter_mode %}checked{% endif %}>
+                    <span class="radio-text">{{ description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Digest Frequency</h2>
+            <p class="section-hint">How often would you like to receive email updates?</p>
+
+            <div class="radio-group">
+                {% for value, label in frequency_options %}
+                <label class="radio-label">
+                    <input type="radio" name="frequency" value="{{ value }}"
+                           {% if value == current_frequency %}checked{% endif %}>
+                    <span class="radio-text">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Preferences</button>
+        </div>
+    </form>
+
+    <div class="account-info">
+        <h2>Account Information</h2>
+        <p><strong>Email:</strong> {{ current_user.email }}</p>
+        <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%B %d, %Y') }}</p>
+    </div>
+</div>
+
+<style>
+    .category-section {
+        margin-bottom: 25px;
+    }
+    .category-header {
+        color: #2c5282;
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .program-area-container {
+        margin-bottom: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .program-header {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        background-color: #f7fafc;
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.2s;
+    }
+    .program-header:hover {
+        background-color: #edf2f7;
+    }
+    .expand-icon {
+        font-size: 0.8rem;
+        margin-right: 10px;
+        transition: transform 0.2s;
+        color: #718096;
+    }
+    .expand-icon.expanded {
+        transform: rotate(90deg);
+    }
+    .program-name {
+        flex: 1;
+        font-weight: 500;
+        color: #2d3748;
+    }
+    .selection-summary {
+        font-size: 0.85rem;
+        color: #2c5282;
+        font-weight: 500;
+    }
+    .subtopics-container {
+        padding: 10px 15px 15px 35px;
+        background-color: #ffffff;
+        border-top: 1px solid #e2e8f0;
+    }
+    .subtopic-all {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed #e2e8f0;
+    }
+    .subtopic-item {
+        margin-left: 15px;
+    }
+    .checkbox-label input:disabled + .checkbox-text {
+        color: #a0aec0;
+    }
+</style>
+
+<script>
+    function toggleSubtopics(programKey) {
+        const container = document.getElementById('subtopics-' + programKey);
+        const icon = document.getElementById('icon-' + programKey);
+
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            icon.classList.add('expanded');
+        } else {
+            container.style.display = 'none';
+            icon.classList.remove('expanded');
+        }
+    }
+
+    function handleAllSubtopics(programKey) {
+        const allCheckbox = document.getElementById('all-' + programKey);
+        const subtopicCheckboxes = document.querySelectorAll('.subtopic-checkbox-' + programKey);
+
+        if (allCheckbox.checked) {
+            // Disable and uncheck all individual subtopics
+            subtopicCheckboxes.forEach(cb => {
+                cb.checked = false;
+                cb.disabled = true;
+            });
+        } else {
+            // Enable all individual subtopics
+            subtopicCheckboxes.forEach(cb => {
+                cb.disabled = false;
+            });
+        }
+        updateSummary(programKey);
+    }
+
+    function handleSubtopicChange(programKey) {
+        const allCheckbox = document.getElementById('all-' + programKey);
+        const subtopicCheckboxes = document.querySelectorAll('.subtopic-checkbox-' + programKey);
+        const anyChecked = Array.from(subtopicCheckboxes).some(cb => cb.checked);
+
+        // If any subtopic is checked, make sure "All" is unchecked
+        if (anyChecked) {
+            allCheckbox.checked = false;
+        }
+        updateSummary(programKey);
+    }
+
+    function updateSummary(programKey) {
+        const allCheckbox = document.getElementById('all-' + programKey);
+        const subtopicCheckboxes = document.querySelectorAll('.subtopic-checkbox-' + programKey);
+        const summary = document.getElementById('summary-' + programKey);
+
+        if (allCheckbox.checked) {
+            summary.textContent = '(All selected)';
+        } else {
+            const checkedCount = Array.from(subtopicCheckboxes).filter(cb => cb.checked).length;
+            if (checkedCount === 0) {
+                summary.textContent = '';
+            } else if (checkedCount === 1) {
+                summary.textContent = '(1 subtopic)';
+            } else {
+                summary.textContent = '(' + checkedCount + ' subtopics)';
+            }
+        }
+    }
+
+    // Expand sections that have selections on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.program-area-container').forEach(container => {
+            const programKey = container.dataset.program;
+            const summary = document.getElementById('summary-' + programKey);
+            if (summary && summary.textContent.trim()) {
+                toggleSubtopics(programKey);
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - CHAI Health Publications Tracker{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>CHAI Health Publications Tracker</h1>
+    <p class="hero-subtitle">Stay informed about the latest health research and publications</p>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <h3>Curated Content</h3>
+        <p>We collect publications from WHO and PubMed covering key global health topics.</p>
+    </div>
+    <div class="feature-card">
+        <h3>Personalized Digests</h3>
+        <p>Choose your areas of interest and receive tailored email updates.</p>
+    </div>
+    <div class="feature-card">
+        <h3>Flexible Schedule</h3>
+        <p>Get digests daily, weekly, biweekly, or monthly - you decide.</p>
+    </div>
+</div>
+
+<div class="program-areas">
+    <h2>Health Topics We Cover</h2>
+    <ul class="topic-list">
+        <li>HIV/AIDS</li>
+        <li>Malaria</li>
+        <li>Tuberculosis</li>
+        <li>Maternal & Child Health</li>
+        <li>Vaccines & Immunization</li>
+        <li>Essential Medicines</li>
+        <li>Health Systems Strengthening</li>
+    </ul>
+</div>
+
+<div class="cta-section">
+    <h2>Get Started</h2>
+    <p>Create an account to start receiving personalized health publication digests.</p>
+    <div class="cta-buttons">
+        <a href="{{ url_for('main.register') }}" class="btn btn-primary">Create Account</a>
+        <a href="{{ url_for('main.login') }}" class="btn btn-secondary">Login</a>
+    </div>
+</div>
+{% endblock %}

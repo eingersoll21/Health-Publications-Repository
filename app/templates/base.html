@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CHAI Health Publications Tracker{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('main.index') }}" class="nav-brand">CHAI Health Tracker</a>
+            <div class="nav-links">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('main.preferences') }}">Preferences</a>
+                    <a href="{{ url_for('main.logout') }}">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('main.login') }}">Login</a>
+                    <a href="{{ url_for('main.register') }}">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>CHAI Health Publications Tracker</p>
+        </div>
+    </footer>
+</body>
+</html>

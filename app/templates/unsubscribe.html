@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Unsubscribe - CHAI Health Publications Tracker{% endblock %}
+
+{% block content %}
+<div class="unsubscribe-container">
+    <h1>Unsubscribe</h1>
+
+    <div class="unsubscribe-message">
+        <p>Your email preferences have been updated.</p>
+        <p>If you'd like to resubscribe in the future, you can create a new account or contact support.</p>
+    </div>
+
+    <div class="unsubscribe-actions">
+        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Return to Home</a>
+    </div>
+</div>
+{% endblock %}

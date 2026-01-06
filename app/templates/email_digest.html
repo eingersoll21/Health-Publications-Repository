@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAI Health Publications Digest</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <!-- Main Container -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f5f5f5;">
+        <tr>
+            <td align="center" style="padding: 20px 10px;">
+                <!-- Content Container -->
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="background-color: #2c5282; padding: 30px 40px; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">
+                                CHAI Health Publications Digest
+                            </h1>
+                            <p style="margin: 10px 0 0 0; color: #a0c4e8; font-size: 14px;">
+                                {{ start_date }} - {{ end_date }}
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Summary -->
+                    <tr>
+                        <td style="background-color: #ffffff; padding: 30px 40px; border-bottom: 1px solid #e2e8f0;">
+                            <p style="margin: 0; color: #4a5568; font-size: 16px;">
+                                Hello,
+                            </p>
+                            <p style="margin: 15px 0 0 0; color: #4a5568; font-size: 16px;">
+                                We found <strong style="color: #2c5282;">{{ publication_count }} new publication{% if publication_count != 1 %}s{% endif %}</strong>
+                                matching your interests this period.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Publications by Category -->
+                    {% for area_name, publications in grouped_publications.items() %}
+                    <tr>
+                        <td style="background-color: #ffffff; padding: 25px 40px; border-bottom: 1px solid #e2e8f0;">
+                            <!-- Category Header -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td style="padding-bottom: 15px; border-bottom: 2px solid #2c5282;">
+                                        <h2 style="margin: 0; color: #2c5282; font-size: 18px; font-weight: 600;">
+                                            {{ area_name }}
+                                        </h2>
+                                        <p style="margin: 5px 0 0 0; color: #718096; font-size: 13px;">
+                                            {{ publications|length }} publication{% if publications|length != 1 %}s{% endif %}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Publications in this category -->
+                            {% for pub in publications %}
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px;">
+                                <tr>
+                                    <td>
+                                        <!-- Source Badge -->
+                                        <span style="display: inline-block; padding: 3px 8px; background-color: {% if pub.source == 'WHO' %}#ebf8ff{% else %}#f0fff4{% endif %}; color: {% if pub.source == 'WHO' %}#2b6cb0{% else %}#276749{% endif %}; font-size: 11px; font-weight: 600; border-radius: 3px; text-transform: uppercase;">
+                                            {{ pub.source }}
+                                        </span>
+                                        {% if pub.date %}
+                                        <span style="color: #a0aec0; font-size: 12px; margin-left: 10px;">
+                                            {{ pub.date.strftime('%B %d, %Y') }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 8px;">
+                                        <!-- Title -->
+                                        <a href="{{ pub.url }}" style="color: #2d3748; font-size: 15px; font-weight: 600; text-decoration: none; line-height: 1.4;">
+                                            {{ pub.title }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% if pub.subtopics %}
+                                <tr>
+                                    <td style="padding-top: 6px;">
+                                        <!-- Subtopic Tags -->
+                                        {% for subtopic in pub.subtopics %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 5px;">
+                                            {{ subtopic }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if pub.regions %}
+                                <tr>
+                                    <td style="padding-top: 6px;">
+                                        <!-- Region Tags -->
+                                        {% for region in pub.regions %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #faf5ff; color: #6b46c1; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 5px;">
+                                            {{ region }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if pub.abstract %}
+                                <tr>
+                                    <td style="padding-top: 8px;">
+                                        <!-- Abstract -->
+                                        <p style="margin: 0; color: #718096; font-size: 14px; line-height: 1.5;">
+                                            {{ pub.abstract }}
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td style="padding-top: 10px;">
+                                        <a href="{{ pub.url }}" style="color: #2c5282; font-size: 13px; text-decoration: none;">
+                                            Read more &rarr;
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f7fafc; padding: 30px 40px; border-radius: 0 0 8px 8px;">
+                            <p style="margin: 0; color: #718096; font-size: 13px; line-height: 1.6;">
+                                You're receiving this digest based on your preferences:
+                            </p>
+                            {% if subscribed_areas %}
+                            <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
+                                <strong style="color: #4a5568;">Program Areas:</strong> {{ subscribed_areas|join(', ') }}
+                            </p>
+                            {% endif %}
+                            {% if subscribed_regions %}
+                            <p style="margin: 5px 0 0 0; color: #718096; font-size: 13px; line-height: 1.6;">
+                                <strong style="color: #4a5568;">Regions:</strong> {{ subscribed_regions|join(', ') }}
+                            </p>
+                            {% endif %}
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px;">
+                                <tr>
+                                    <td style="padding-right: 15px;">
+                                        <a href="{{ preferences_url }}" style="color: #2c5282; font-size: 13px; text-decoration: none;">
+                                            Update Preferences
+                                        </a>
+                                    </td>
+                                    <td style="border-left: 1px solid #cbd5e0; padding-left: 15px;">
+                                        <a href="{{ unsubscribe_url }}" style="color: #718096; font-size: 13px; text-decoration: none;">
+                                            Unsubscribe
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 25px 0 0 0; color: #a0aec0; font-size: 12px;">
+                                CHAI Health Publications Tracker
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
