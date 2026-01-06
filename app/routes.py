@@ -190,6 +190,7 @@ def preferences():
         existing_prefs = UserProgramPreference.query.filter_by(user_id=current_user.id).all()
         for pref in existing_prefs:
             db.session.delete(pref)
+        db.session.flush()  # Ensure deletes are applied before inserting new prefs
 
         # Track which programs we've created preferences for
         created_prefs = {}  # {program_key: UserProgramPreference}
