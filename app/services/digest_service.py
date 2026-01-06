@@ -3,7 +3,9 @@ Digest Service for the CHAI Health Publications Tracker.
 
 This module handles creating and sending email digests:
 - Finding relevant publications for each user
-- Creating personalized digest content
+- Creating personalized digest content with two sections:
+  1. "New This Week" - publications not yet sent to the user
+  2. "In Case You Missed It" - top previously sent publications
 - Tracking what has been sent
 - Managing digest scheduling
 """
@@ -21,6 +23,35 @@ from app.routes import generate_unsubscribe_token
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Constants for digest sections
+MAX_NEW_PUBLICATIONS = 7
+MAX_ICYMI_PUBLICATIONS = 5
+TOTAL_MAX_PUBLICATIONS = 12
+
+# Lookback periods for "In Case You Missed It" section (in days)
+ICYMI_LOOKBACK = {
+    'daily': 14,      # 2 weeks
+    'weekly': 14,     # 2 weeks
+    'biweekly': 28,   # 4 weeks
+    'monthly': 28     # 4 weeks
+}
+
+# "No new publications" messages based on frequency
+NO_NEW_PUBS_MESSAGE = {
+    'daily': 'No new publications today matching your preferences.',
+    'weekly': 'No new publications this week matching your preferences.',
+    'biweekly': 'No new publications in the last two weeks matching your preferences.',
+    'monthly': 'No new publications this month matching your preferences.'
+}
+
+# ICYMI header text based on frequency
+ICYMI_HEADER = {
+    'daily': 'In Case You Missed It (Past 2 Weeks)',
+    'weekly': 'In Case You Missed It (Past 2 Weeks)',
+    'biweekly': 'In Case You Missed It (Past 4 Weeks)',
+    'monthly': 'In Case You Missed It (Past 4 Weeks)'
+}
 
 
 def get_publications_for_user(user, days_back=30, max_publications=None):
@@ -331,20 +362,157 @@ def get_publications_for_user(user, days_back=30, max_publications=None):
                     'matched_terms': region.matched_terms
                 })
 
-    # Convert to list and limit
-    results = list(pub_dict.values())[:max_publications]
+    # Convert to list, sort by relevance score, and limit
+    results = list(pub_dict.values())
 
-    logger.info(f"Found {len(results)} publications for user {user.email} (filter_mode: {filter_mode})")
+    # Sort by highest relevance score
+    def get_max_score(pub_data):
+        scores = [pa['score'] for pa in pub_data.get('program_areas', [])]
+        scores.extend([st['score'] for st in pub_data.get('subtopics', [])])
+        return max(scores) if scores else 0
+
+    results.sort(key=get_max_score, reverse=True)
+    results = results[:max_publications]
+
+    logger.info(f"Found {len(results)} new publications for user {user.email} (filter_mode: {filter_mode})")
     return results
 
 
-def create_digest_content(user, publications, base_url=None):
+def get_previously_sent_publications(user, lookback_days, max_publications=MAX_ICYMI_PUBLICATIONS, exclude_ids=None):
     """
-    Create the HTML content for a digest email.
+    Get publications that were previously sent to this user within the lookback period.
 
     Args:
         user: User object
-        publications: List from get_publications_for_user
+        lookback_days: How many days back to look for previously sent publications
+        max_publications: Maximum number of publications to return
+        exclude_ids: Set of publication IDs to exclude (e.g., those in Section 1)
+
+    Returns:
+        List of dicts with publication data, program areas, and regions
+    """
+    if exclude_ids is None:
+        exclude_ids = set()
+
+    # Calculate lookback cutoff
+    cutoff_date = datetime.utcnow() - timedelta(days=lookback_days)
+
+    # Get publication IDs sent to this user within the lookback period
+    sent_logs = db.session.query(DigestLog).filter(
+        DigestLog.user_id == user.id,
+        DigestLog.sent_at >= cutoff_date
+    ).order_by(DigestLog.sent_at.desc()).all()
+
+    # Get unique publication IDs (most recently sent first)
+    sent_pub_ids = []
+    seen = set()
+    for log in sent_logs:
+        if log.publication_id not in seen and log.publication_id not in exclude_ids:
+            sent_pub_ids.append(log.publication_id)
+            seen.add(log.publication_id)
+
+    if not sent_pub_ids:
+        return []
+
+    # Get the publications with their program areas
+    pub_dict = {}
+    for pub_id in sent_pub_ids:
+        pub = Publication.query.get(pub_id)
+        if not pub:
+            continue
+
+        pub_dict[pub.id] = {
+            'publication': pub,
+            'program_areas': [],
+            'subtopics': [],
+            'regions': []
+        }
+
+        # Get program areas
+        areas = PublicationProgramArea.query.filter_by(publication_id=pub_id).all()
+        for area in areas:
+            pub_dict[pub.id]['program_areas'].append({
+                'key': area.program_area_key,
+                'name': get_program_area_name(area.program_area_key),
+                'score': area.relevance_score
+            })
+
+        # Get subtopics
+        subtopics = PublicationSubtopic.query.filter_by(publication_id=pub_id).all()
+        for st in subtopics:
+            pub_dict[pub.id]['subtopics'].append({
+                'program_key': st.program_area_key,
+                'subtopic_key': st.subtopic_key,
+                'name': get_subtopic_name(st.program_area_key, st.subtopic_key),
+                'score': st.relevance_score
+            })
+
+        # Get regions
+        regions = PublicationRegion.query.filter_by(publication_id=pub_id).all()
+        for region in regions:
+            pub_dict[pub.id]['regions'].append({
+                'key': region.region_key,
+                'name': get_region_name(region.region_key),
+                'matched_terms': region.matched_terms
+            })
+
+    # Convert to list, sort by relevance score, and limit
+    results = list(pub_dict.values())
+
+    def get_max_score(pub_data):
+        scores = [pa['score'] for pa in pub_data.get('program_areas', [])]
+        scores.extend([st['score'] for st in pub_data.get('subtopics', [])])
+        return max(scores) if scores else 0
+
+    results.sort(key=get_max_score, reverse=True)
+    results = results[:max_publications]
+
+    logger.info(f"Found {len(results)} previously sent publications for user {user.email}")
+    return results
+
+
+def format_publication_for_display(pub_data):
+    """
+    Format a publication dict for display in the digest.
+
+    Args:
+        pub_data: Dict with 'publication', 'program_areas', 'subtopics', 'regions'
+
+    Returns:
+        Dict formatted for template display
+    """
+    pub = pub_data['publication']
+
+    # Get the highest relevance score
+    scores = [pa['score'] for pa in pub_data.get('program_areas', [])]
+    scores.extend([st['score'] for st in pub_data.get('subtopics', [])])
+    max_score = max(scores) if scores else 0
+
+    # Get region and subtopic names for display
+    region_names = [r['name'] for r in pub_data.get('regions', [])]
+    subtopic_names = [st['name'] for st in pub_data.get('subtopics', [])]
+
+    return {
+        'title': pub.title,
+        'url': pub.url,
+        'source': pub.source,
+        'date': pub.publication_date,
+        'abstract': truncate_text(pub.abstract, 200) if pub.abstract else None,
+        'authors': pub.authors,
+        'relevance_score': max_score,
+        'regions': region_names,
+        'subtopics': subtopic_names
+    }
+
+
+def create_digest_content(user, new_publications, icymi_publications, base_url=None):
+    """
+    Create the HTML content for a digest email with two sections.
+
+    Args:
+        user: User object
+        new_publications: List of new publications (Section 1: "New This Week")
+        icymi_publications: List of previously sent publications (Section 2: "In Case You Missed It")
         base_url: Base URL for links (preferences, unsubscribe).
                   Defaults to Config.BASE_URL if not provided.
 
@@ -353,36 +521,10 @@ def create_digest_content(user, publications, base_url=None):
     """
     if base_url is None:
         base_url = Config.BASE_URL
-    # Group publications by primary program area
-    grouped = {}
-    for pub_data in publications:
-        pub = pub_data['publication']
-        # Use the highest-scoring program area as primary
-        if not pub_data['program_areas']:
-            continue  # Skip if no program areas
-        primary_area = max(pub_data['program_areas'], key=lambda x: x['score'])
-        area_name = primary_area['name']
 
-        if area_name not in grouped:
-            grouped[area_name] = []
-
-        # Get region names for display
-        region_names = [r['name'] for r in pub_data.get('regions', [])]
-
-        # Get subtopic names for display
-        subtopic_names = [st['name'] for st in pub_data.get('subtopics', [])]
-
-        grouped[area_name].append({
-            'title': pub.title,
-            'url': pub.url,
-            'source': pub.source,
-            'date': pub.publication_date,
-            'abstract': truncate_text(pub.abstract, 200) if pub.abstract else None,
-            'authors': pub.authors,
-            'relevance_score': primary_area['score'],
-            'regions': region_names,
-            'subtopics': subtopic_names
-        })
+    # Format publications for display
+    new_pubs_formatted = [format_publication_for_display(p) for p in new_publications]
+    icymi_pubs_formatted = [format_publication_for_display(p) for p in icymi_publications]
 
     # Generate unsubscribe token
     unsubscribe_token = generate_unsubscribe_token(user)
@@ -393,15 +535,30 @@ def create_digest_content(user, publications, base_url=None):
     subscribed_areas = [get_program_area_name(key) for key in user.get_selected_program_keys()]
     subscribed_regions = [get_region_name(key) for key in user.get_selected_region_keys()]
 
+    # Get frequency-specific text
+    frequency = user.digest_frequency
+    no_new_pubs_message = NO_NEW_PUBS_MESSAGE.get(frequency, NO_NEW_PUBS_MESSAGE['weekly'])
+    icymi_header = ICYMI_HEADER.get(frequency, ICYMI_HEADER['weekly'])
+
     # Calculate date range
     end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=7)
+
+    # Total publication count
+    total_count = len(new_publications) + len(icymi_publications)
 
     # Create context for template
     context = {
         'user': user,
-        'grouped_publications': grouped,
-        'publication_count': len(publications),
+        'new_publications': new_pubs_formatted,
+        'icymi_publications': icymi_pubs_formatted,
+        'new_count': len(new_publications),
+        'icymi_count': len(icymi_publications),
+        'total_count': total_count,
+        'has_new_publications': len(new_publications) > 0,
+        'has_icymi_publications': len(icymi_publications) > 0,
+        'no_new_pubs_message': no_new_pubs_message,
+        'icymi_header': icymi_header,
         'start_date': start_date.strftime('%B %d, %Y'),
         'end_date': end_date.strftime('%B %d, %Y'),
         'subscribed_areas': subscribed_areas,
@@ -419,10 +576,16 @@ def create_digest_content(user, publications, base_url=None):
     # Create plain text version
     text_content = create_plain_text_digest(context)
 
+    # Create subject line
+    if len(new_publications) > 0:
+        subject = f"CHAI Health Digest - {len(new_publications)} New Publication{'s' if len(new_publications) != 1 else ''}"
+    else:
+        subject = "CHAI Health Digest - In Case You Missed It"
+
     return {
         'html': html_content,
         'text': text_content,
-        'subject': f"CHAI Health Digest - {len(publications)} New Publications"
+        'subject': subject
     }
 
 
@@ -440,17 +603,19 @@ def create_plain_text_digest(context):
     lines = [
         "CHAI Health Publications Digest",
         "=" * 40,
-        f"Date Range: {context['start_date']} - {context['end_date']}",
-        f"New Publications: {context['publication_count']}",
+        f"Date: {context['end_date']}",
         "",
     ]
 
-    for area_name, pubs in context['grouped_publications'].items():
-        lines.append(f"\n{area_name}")
-        lines.append("-" * len(area_name))
+    # Section 1: New This Week
+    if context['has_new_publications']:
+        lines.append("NEW THIS WEEK")
+        lines.append("-" * 20)
+        lines.append(f"{context['new_count']} new publication{'s' if context['new_count'] != 1 else ''}")
+        lines.append("")
 
-        for pub in pubs:
-            lines.append(f"\n* {pub['title']}")
+        for pub in context['new_publications']:
+            lines.append(f"* {pub['title']}")
             lines.append(f"  Source: {pub['source']}")
             if pub['date']:
                 lines.append(f"  Date: {pub['date'].strftime('%Y-%m-%d')}")
@@ -461,13 +626,39 @@ def create_plain_text_digest(context):
             lines.append(f"  Link: {pub['url']}")
             if pub['abstract']:
                 lines.append(f"  {pub['abstract']}")
+            lines.append("")
+    else:
+        lines.append(context['no_new_pubs_message'])
+        lines.append("")
+
+    # Section 2: In Case You Missed It
+    if context['has_icymi_publications']:
+        lines.append("")
+        lines.append(context['icymi_header'].upper())
+        lines.append("-" * 20)
+        lines.append(f"{context['icymi_count']} publication{'s' if context['icymi_count'] != 1 else ''}")
+        lines.append("")
+
+        for pub in context['icymi_publications']:
+            lines.append(f"* {pub['title']}")
+            lines.append(f"  Source: {pub['source']}")
+            if pub['date']:
+                lines.append(f"  Date: {pub['date'].strftime('%Y-%m-%d')}")
+            if pub.get('subtopics'):
+                lines.append(f"  Topics: {', '.join(pub['subtopics'])}")
+            if pub.get('regions'):
+                lines.append(f"  Regions: {', '.join(pub['regions'])}")
+            lines.append(f"  Link: {pub['url']}")
+            if pub['abstract']:
+                lines.append(f"  {pub['abstract']}")
+            lines.append("")
 
     lines.extend([
         "",
         "-" * 40,
     ])
 
-    # Show subscription info based on filter mode
+    # Show subscription info
     if context.get('subscribed_areas'):
         lines.append(f"Program areas: {', '.join(context['subscribed_areas'])}")
     if context.get('subscribed_regions'):
@@ -494,31 +685,51 @@ def send_digest_to_user(user, base_url=None):
     """
     Create and send a digest email to a single user.
 
+    The digest has two sections:
+    1. "New This Week" - up to 7 new publications
+    2. "In Case You Missed It" - up to 5 previously sent publications
+
     Args:
         user: User object
         base_url: Base URL for links. Defaults to Config.BASE_URL.
 
     Returns:
-        Dictionary with results: {success, publications_sent, error}
+        Dictionary with results: {success, new_sent, icymi_count, error}
     """
     if base_url is None:
         base_url = Config.BASE_URL
     logger.info(f"Preparing digest for user {user.email}")
 
-    # Get publications for this user
-    publications = get_publications_for_user(user)
+    # Get new publications for this user (Section 1)
+    new_publications = get_publications_for_user(user, max_publications=MAX_NEW_PUBLICATIONS)
 
-    if not publications:
-        logger.info(f"No new publications for user {user.email}")
+    # Get IDs of new publications to exclude from ICYMI
+    new_pub_ids = set(p['publication'].id for p in new_publications)
+
+    # Get lookback period based on user's frequency
+    lookback_days = ICYMI_LOOKBACK.get(user.digest_frequency, 14)
+
+    # Get previously sent publications (Section 2)
+    icymi_publications = get_previously_sent_publications(
+        user,
+        lookback_days=lookback_days,
+        max_publications=MAX_ICYMI_PUBLICATIONS,
+        exclude_ids=new_pub_ids
+    )
+
+    # If no publications at all, skip sending
+    if not new_publications and not icymi_publications:
+        logger.info(f"No publications (new or ICYMI) for user {user.email}")
         return {
             'success': True,
-            'publications_sent': 0,
-            'message': 'No new publications'
+            'new_sent': 0,
+            'icymi_count': 0,
+            'message': 'No publications to send'
         }
 
     try:
-        # Create digest content
-        content = create_digest_content(user, publications, base_url)
+        # Create digest content with both sections
+        content = create_digest_content(user, new_publications, icymi_publications, base_url)
 
         # Send the email
         email_sent = send_email(
@@ -529,9 +740,9 @@ def send_digest_to_user(user, base_url=None):
         )
 
         if email_sent:
-            # Log the sent publications
+            # Log only the NEW publications (not ICYMI, as those were already logged)
             batch_id = str(uuid.uuid4())[:8]
-            for pub_data in publications:
+            for pub_data in new_publications:
                 log = DigestLog(
                     user_id=user.id,
                     publication_id=pub_data['publication'].id,
@@ -543,17 +754,19 @@ def send_digest_to_user(user, base_url=None):
             user.last_digest_sent = datetime.utcnow()
             db.session.commit()
 
-            logger.info(f"Digest sent to {user.email}: {len(publications)} publications")
+            logger.info(f"Digest sent to {user.email}: {len(new_publications)} new, {len(icymi_publications)} ICYMI")
             return {
                 'success': True,
-                'publications_sent': len(publications),
+                'new_sent': len(new_publications),
+                'icymi_count': len(icymi_publications),
                 'message': 'Digest sent successfully'
             }
         else:
             logger.error(f"Failed to send digest to {user.email}")
             return {
                 'success': False,
-                'publications_sent': 0,
+                'new_sent': 0,
+                'icymi_count': 0,
                 'error': 'Email sending failed'
             }
 
@@ -561,7 +774,8 @@ def send_digest_to_user(user, base_url=None):
         logger.error(f"Error creating digest for {user.email}: {e}")
         return {
             'success': False,
-            'publications_sent': 0,
+            'new_sent': 0,
+            'icymi_count': 0,
             'error': str(e)
         }
 
@@ -640,7 +854,9 @@ def send_all_pending_digests(base_url=None):
         result = send_digest_to_user(user, base_url)
 
         if result['success']:
-            if result['publications_sent'] > 0:
+            # Count as sent if we sent any publications (new or ICYMI)
+            total_pubs = result.get('new_sent', 0) + result.get('icymi_count', 0)
+            if total_pubs > 0:
                 results['sent'] += 1
             else:
                 results['skipped'] += 1
