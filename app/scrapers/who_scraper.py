@@ -221,30 +221,12 @@ def parse_publication_page(url):
         return None
 
 
-def check_ahead_of_print(pub_date, url=None):
-    """
-    Check if a publication date is in the future (ahead of print).
-
-    Args:
-        pub_date: datetime.date object to check
-        url: Publication URL for logging purposes (optional)
-
-    Returns:
-        Tuple of (pub_date, is_ahead_of_print)
-    """
-    if pub_date is None:
-        return None, False
-
-    today = date.today()
-    if pub_date > today:
-        logger.info(f"Ahead of print article detected - {url}: scheduled for {pub_date}")
-        return pub_date, True
-    return pub_date, False
-
-
 def parse_date(date_str):
     """
     Parse various date formats into a date object.
+
+    WHO publications are always officially published when they appear on the site,
+    so is_ahead_of_print is always False for WHO content.
 
     Args:
         date_str: Date string in various formats
@@ -287,8 +269,8 @@ def parse_date(date_str):
             except ValueError:
                 pass
 
-    # Check if ahead of print (future date)
-    return check_ahead_of_print(parsed_date, date_str)
+    # WHO publications are always published (not ahead-of-print)
+    return parsed_date, False
 
 
 def categorize_publication(title, abstract=None):

@@ -32,28 +32,35 @@ Entrez.tool = Config.PUBMED_TOOL
 REQUEST_DELAY = 0.4  # seconds between requests
 
 
-def check_ahead_of_print(pub_date, pmid=None):
+def check_ahead_of_print_from_status(publication_status, pmid=None):
     """
-    Check if a publication date is in the future (ahead of print).
+    Check if a publication is ahead-of-print using the actual PubMed status field.
 
-    PubMed returns future dates for articles that are accepted but not yet
-    in a print issue. We preserve the original date but flag these articles.
+    PubMed provides a PublicationStatus field that explicitly indicates the
+    publication state. This is more reliable than checking dates.
+
+    Common status values:
+    - "aheadofprint" - Article accepted but not yet in a print issue
+    - "epublish" - Electronically published (final form)
+    - "ppublish" - Print published (final form)
 
     Args:
-        pub_date: datetime.date object to check
+        publication_status: The PublicationStatus string from PubMed
         pmid: PubMed ID for logging purposes (optional)
 
     Returns:
-        Tuple of (pub_date, is_ahead_of_print)
+        Boolean indicating if the article is ahead-of-print
     """
-    if pub_date is None:
-        return None, False
+    if not publication_status:
+        return False
 
-    today = date.today()
-    if pub_date > today:
-        logger.info(f"Ahead of print article detected - PMID {pmid}: scheduled for {pub_date}")
-        return pub_date, True
-    return pub_date, False
+    status_lower = publication_status.lower().strip()
+
+    if status_lower == "aheadofprint":
+        logger.info(f"Ahead of print article detected - PMID {pmid}: status={publication_status}")
+        return True
+
+    return False
 
 
 def build_search_query(keywords):
@@ -269,8 +276,11 @@ def parse_pubmed_article(article):
             except (ValueError, TypeError):
                 pub_date = datetime.strptime(f"{year}-01-01", "%Y-%m-%d").date()
 
-        # Check if this is an ahead-of-print article (future date)
-        pub_date, is_ahead_of_print = check_ahead_of_print(pub_date, pmid)
+        # Check if this is an ahead-of-print article using PubMed's actual status field
+        # The PublicationStatus is in PubmedData, not MedlineCitation
+        pubmed_data = article.get("PubmedData", {})
+        publication_status = pubmed_data.get("PublicationStatus", "")
+        is_ahead_of_print = check_ahead_of_print_from_status(publication_status, pmid)
 
         # Extract journal name
         journal_title = journal.get("Title", "")
@@ -516,7 +526,7 @@ def fetch_all_program_areas():
         pmids = search_pubmed(
             query,
             max_results=Config.PUBMED_MAX_RESULTS_PER_AREA,
-            days_back=Config.PUBMED_DAYS_LOOKBACK
+            days_back=Config.SCRAPER_DAYS_LOOKBACK
         )
 
         if pmids:

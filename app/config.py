@@ -57,8 +57,8 @@ class Config:
 
     # Scraping settings
     SCRAPER_DELAY_SECONDS = 2  # Delay between requests to be respectful
-    PUBMED_MAX_RESULTS_PER_AREA = 50  # Max papers per program area per run
-    PUBMED_DAYS_LOOKBACK = 30  # Only get papers from last N days
+    PUBMED_MAX_RESULTS_PER_AREA = int(os.getenv('PUBMED_MAX_RESULTS_PER_AREA', '50'))  # Max papers per program area per run
+    SCRAPER_DAYS_LOOKBACK = int(os.getenv('SCRAPER_DAYS_LOOKBACK', '180'))  # Days to look back (default 6 months)
 
     # Digest settings
     MIN_RELEVANCE_SCORE = 10  # Minimum score to link publication to program area
@@ -556,6 +556,39 @@ def get_program_area_category(key):
 def get_all_program_area_choices():
     """Get list of (key, name) tuples for all program areas."""
     return [(key, area["name"]) for key, area in PROGRAM_AREAS.items()]
+
+
+def get_program_subtopics_for_dropdown():
+    """
+    Get program areas with subtopics in a flat structure for JavaScript dropdown.
+
+    Returns:
+        Dictionary with structure:
+        {
+            program_key: {
+                name: str,
+                subtopics: [
+                    {key: subtopic_key, name: subtopic_name},
+                    ...
+                ]
+            }
+        }
+    """
+    result = {}
+    for key, area in PROGRAM_AREAS.items():
+        subtopics_list = []
+        for st_key, st_info in area.get("subtopics", {}).items():
+            subtopics_list.append({
+                "key": st_key,
+                "name": st_info["name"]
+            })
+        # Sort subtopics alphabetically by name
+        subtopics_list.sort(key=lambda x: x["name"])
+        result[key] = {
+            "name": area["name"],
+            "subtopics": subtopics_list
+        }
+    return result
 
 
 def get_all_program_areas_with_subtopics():
