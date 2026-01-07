@@ -61,10 +61,10 @@ def send_email(to_email, subject, html_content, text_content=None):
         msg.attach(part1)
         msg.attach(part2)
 
-        # Connect to SMTP server and send
+        # Connect to SMTP server and send (with 10 second timeout)
         logger.info(f"Connecting to SMTP server {Config.SMTP_SERVER}:{Config.SMTP_PORT}")
 
-        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT) as server:
+        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
@@ -115,7 +115,7 @@ def test_email_connection():
     try:
         logger.info(f"Testing connection to {Config.SMTP_SERVER}:{Config.SMTP_PORT}")
 
-        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT) as server:
+        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
