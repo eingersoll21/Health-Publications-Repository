@@ -30,9 +30,11 @@ class Config:
         'DATABASE_URL',
         f"sqlite:///{BASE_DIR / 'data' / 'health_tracker.db'}"
     )
-    # Render uses postgres:// but SQLAlchemy 2.0+ requires postgresql://
+    # Render uses postgres:// - convert to postgresql+psycopg:// for psycopg 3
     if _database_url.startswith('postgres://'):
-        _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
+        _database_url = _database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif _database_url.startswith('postgresql://'):
+        _database_url = _database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
     SQLALCHEMY_DATABASE_URI = _database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
