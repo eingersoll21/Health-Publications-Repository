@@ -1,5 +1,5 @@
 """
-PubMed Scraper for the Global Health Publications Tracker.
+PubMed Scraper for the Global Health Research Hub.
 
 This module collects research papers from PubMed using the official NCBI API
 via Biopython's Entrez module. It searches for papers matching health program

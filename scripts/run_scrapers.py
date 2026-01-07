@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Manual scraper runner for the Global Health Publications Tracker.
+Manual scraper runner for the Global Health Research Hub.
 
 Run this script to manually fetch publications from WHO and PubMed.
 
@@ -106,7 +106,7 @@ def run_pubmed_scraper(app):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Run publication scrapers for Health Publications Tracker"
+        description="Run publication scrapers for Health Research Hub"
     )
     parser.add_argument(
         "--who",
@@ -124,7 +124,7 @@ def main():
     run_all = not args.who and not args.pubmed
 
     print_separator()
-    print("🏥 Global Health Publications Tracker - Scraper Runner")
+    print("🏥 Global Health Research Hub - Scraper Runner")
     print(f"   Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print_separator()
 

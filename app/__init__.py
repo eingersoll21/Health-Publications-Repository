@@ -1,5 +1,5 @@
 """
-Flask application factory for the CHAI Health Publications Tracker.
+Flask application factory for the CHAI Health Research Hub.
 
 This module creates and configures the Flask application instance,
 initializes the database, and sets up Flask-Login for user authentication.

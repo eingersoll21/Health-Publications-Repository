@@ -1,5 +1,5 @@
 """
-WHO Publications Scraper for the Global Health Publications Tracker.
+WHO Publications Scraper for the Global Health Research Hub.
 
 This module collects publications from the World Health Organization API,
 extracts metadata, categorizes them by health program areas, and saves them
@@ -29,7 +29,7 @@ WHO_API_URL = "https://www.who.int/api/hubs/publications"
 
 # Headers for API requests
 HEADERS = {
-    "User-Agent": "CHAI-Health-Tracker/1.0 (Health Publications Research Tool)",
+    "User-Agent": "CHAI-Health-Research-Hub/1.0 (Health Research Tool)",
     "Accept": "application/json",
     "Accept-Language": "en-US,en;q=0.5",
 }

@@ -1,5 +1,5 @@
 """
-Database models for the Global Health Publications Tracker.
+Database models for the Global Health Research Hub.
 
 This file defines all database tables:
 - User: Registered users with their preferences

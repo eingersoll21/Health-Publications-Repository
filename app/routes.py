@@ -1,5 +1,5 @@
 """
-Web routes for the Global Health Publications Tracker.
+Web routes for the Global Health Research Hub.
 
 This file defines all the website pages and handles user actions:
 - Home/Dashboard page

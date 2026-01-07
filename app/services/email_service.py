@@ -1,5 +1,5 @@
 """
-Email Service for the Global Health Publications Tracker.
+Email Service for the Global Health Research Hub.
 
 This module handles sending emails via SMTP, including:
 - HTML email formatting
@@ -185,7 +185,7 @@ def send_welcome_email(user, base_url=None):
 
         # Create plain text version
         text_content = f"""
-Welcome to Global Health Publications Tracker!
+Welcome to Global Health Research Hub!
 
 Hi {user.first_name},
 
@@ -208,7 +208,7 @@ Have ideas for new data sources or features?
 {suggestions_url}
 
 Happy reading!
-Global Health Publications Tracker
+Global Health Research Hub
 
 ---
 Unsubscribe: {unsubscribe_url}
@@ -216,7 +216,7 @@ Update Preferences: {preferences_url}
 """
 
         # Send the email
-        subject = "Welcome to Global Health Publications Tracker!"
+        subject = "Welcome to Global Health Research Hub!"
         success = send_email(
             to_email=user.email,
             subject=subject,

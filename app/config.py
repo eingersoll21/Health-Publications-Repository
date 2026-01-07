@@ -1,5 +1,5 @@
 """
-Configuration settings for the Global Health Publications Tracker.
+Configuration settings for the Global Health Research Hub.
 
 This file contains all application settings including database location,
 email configuration, and program area definitions with keywords.

@@ -1,5 +1,5 @@
 """
-Shared publication query helpers for the Global Health Publications Tracker.
+Shared publication query helpers for the Global Health Research Hub.
 
 This module provides reusable functions for querying publications based on
 user preferences, with proper handling of:

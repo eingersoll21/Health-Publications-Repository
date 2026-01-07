@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main entry point for the Global Health Publications Tracker.
+Main entry point for the Global Health Research Hub.
 
 Usage:
     python run.py                    # Start website only
@@ -131,7 +131,7 @@ def setup_scheduler():
 def main():
     """Main entry point with command-line argument handling."""
     parser = argparse.ArgumentParser(
-        description="Global Health Publications Tracker"
+        description="Global Health Research Hub"
     )
     parser.add_argument(
         "--with-scheduler",
@@ -164,7 +164,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("Global Health Publications Tracker")
+    print("Global Health Research Hub")
     print("=" * 60)
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Open http://{args.host}:{args.port} in your browser")

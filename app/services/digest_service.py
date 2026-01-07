@@ -1,5 +1,5 @@
 """
-Digest Service for the Global Health Publications Tracker.
+Digest Service for the Global Health Research Hub.
 
 This module handles creating and sending email digests:
 - Finding relevant publications for each user based on two subscription types:
@@ -960,9 +960,9 @@ def create_digest_content(user, new_publications, icymi_publications, base_url=N
 
     # Create subject line
     if len(new_publications) > 0:
-        subject = f"Health Publications Digest - {len(new_publications)} New Publication{'s' if len(new_publications) != 1 else ''}"
+        subject = f"Health Research Hub Digest - {len(new_publications)} New Publication{'s' if len(new_publications) != 1 else ''}"
     else:
-        subject = "Health Publications Digest - In Case You Missed It"
+        subject = "Health Research Hub Digest - In Case You Missed It"
 
     return {
         'html': html_content,
@@ -1011,7 +1011,7 @@ def create_plain_text_digest(context):
         return pub_lines
 
     lines = [
-        "Global Health Publications Digest",
+        "Global Health Research Hub Digest",
         "=" * 40,
         f"Date: {context['end_date']}",
         "",

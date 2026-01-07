@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}My Subscriptions - Global Health Publications Tracker{% endblock %}
+{% block title %}My Subscriptions - Global Health Research Hub{% endblock %}
 
 {% block content %}
 <div class="preferences-container compact">
@@ -11,10 +11,10 @@
 
     <form method="POST" class="preferences-form">
         <!-- ========== SECTION 1: PROGRAM SUBSCRIPTIONS ========== -->
-        <div class="form-section">
+        <div class="form-section program-subscriptions-section">
             <div class="section-header">
                 <h2>Program Subscriptions</h2>
-                <span class="section-badge">By Health Topic</span>
+                <span class="section-badge blue">By Health Topic</span>
             </div>
             <p class="section-hint">Select topics you're interested in. Click a card to configure subtopics and location filters.</p>
 
@@ -332,9 +332,21 @@
     border-radius: 12px;
     text-transform: uppercase;
 }
+.section-badge.blue {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
 .section-badge.orange {
     background-color: #feebc8;
     color: #c05621;
+}
+/* Program Subscriptions Section - Light blue like Country Watch is orange */
+.program-subscriptions-section {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
 }
 .section-hint {
     color: #718096;
@@ -342,7 +354,7 @@
     margin: 0 0 15px 0;
 }
 
-/* Program Cards Grid */
+/* Program Cards Grid - Fixed uniform sizing */
 .program-cards-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -366,13 +378,14 @@
 .card-header {
     display: flex;
     align-items: center;
-    padding: 10px 12px;
-    background: #f7fafc;
+    padding: 0 12px;
+    height: 56px;
+    background: #fff;
     cursor: pointer;
     gap: 8px;
 }
 .card-header:hover {
-    background: #edf2f7;
+    background: #f7fafc;
 }
 .card-checkbox {
     position: relative;
@@ -409,8 +422,13 @@
 .card-title {
     flex: 1;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #2d3748;
+    line-height: 1.3;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 .expand-arrow {
     color: #a0aec0;

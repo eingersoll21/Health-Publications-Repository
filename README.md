@@ -1,4 +1,4 @@
-# CHAI Health Publications Tracker
+# CHAI Global Health Research Hub
 
 A system that automatically collects health publications from WHO and PubMed, and sends personalized email digests to subscribers based on their areas of interest.
 
