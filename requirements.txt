@@ -22,5 +22,5 @@ apscheduler==3.10.4
 # Production web server
 gunicorn==21.2.0
 
-# PostgreSQL database support (for Render deployment)
-psycopg2-binary==2.9.9
+# PostgreSQL database support (for Render deployment, Python 3.13 compatible)
+psycopg[binary]>=3.1.0
