@@ -60,3 +60,8 @@ def init_db(app):
     """
     with app.app_context():
         db.create_all()
+
+
+# Create app instance for gunicorn (gunicorn app:app)
+app = create_app()
+init_db(app)
