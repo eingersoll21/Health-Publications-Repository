@@ -4,43 +4,178 @@
 
 {% block content %}
 <div class="hero">
-    <h1>Global Health Publications Tracker</h1>
-    <p class="hero-subtitle">Stay informed about the latest health research and publications</p>
+    <h1>The global health research you need — without the search.</h1>
+    <p class="hero-subtitle">We aggregate the latest publications from various public sources so you can stay current on the topics that matter to you.</p>
 </div>
 
 <div class="features">
     <div class="feature-card">
+        <div class="feature-preview browse-preview">
+            <div class="mock-header">
+                <div class="mock-filter"></div>
+                <div class="mock-filter"></div>
+                <div class="mock-search"></div>
+            </div>
+            <div class="mock-card">
+                <div class="mock-tag"></div>
+                <div class="mock-title"></div>
+                <div class="mock-text"></div>
+            </div>
+            <div class="mock-card">
+                <div class="mock-tag green"></div>
+                <div class="mock-title"></div>
+                <div class="mock-text"></div>
+            </div>
+        </div>
         <h3>Curated Content</h3>
         <p>We collect publications from WHO and PubMed covering key global health topics.</p>
     </div>
     <div class="feature-card">
+        <div class="feature-preview email-preview">
+            <div class="mock-email-header">
+                <div class="mock-avatar"></div>
+                <div class="mock-email-meta">
+                    <div class="mock-sender"></div>
+                    <div class="mock-subject"></div>
+                </div>
+            </div>
+            <div class="mock-email-body">
+                <div class="mock-section-title">New This Week</div>
+                <div class="mock-email-item">
+                    <div class="mock-bullet"></div>
+                    <div class="mock-item-text"></div>
+                </div>
+                <div class="mock-email-item">
+                    <div class="mock-bullet"></div>
+                    <div class="mock-item-text"></div>
+                </div>
+                <div class="mock-email-item">
+                    <div class="mock-bullet"></div>
+                    <div class="mock-item-text"></div>
+                </div>
+            </div>
+        </div>
         <h3>Personalized Digests</h3>
         <p>Choose your areas of interest and receive tailored email updates.</p>
     </div>
     <div class="feature-card">
+        <div class="feature-preview schedule-preview">
+            <div class="mock-calendar">
+                <div class="mock-cal-header"></div>
+                <div class="mock-cal-grid">
+                    <div class="mock-day"></div>
+                    <div class="mock-day"></div>
+                    <div class="mock-day"></div>
+                    <div class="mock-day active"></div>
+                    <div class="mock-day"></div>
+                    <div class="mock-day"></div>
+                    <div class="mock-day"></div>
+                </div>
+            </div>
+            <div class="mock-schedule-options">
+                <span class="schedule-pill">Daily</span>
+                <span class="schedule-pill active">Weekly</span>
+                <span class="schedule-pill">Monthly</span>
+            </div>
+        </div>
         <h3>Flexible Schedule</h3>
-        <p>Get digests daily, weekly, biweekly, or monthly - you decide.</p>
+        <p>Get digests daily, weekly, biweekly, or monthly — and choose the exact day and time they hit your inbox.</p>
+    </div>
+</div>
+
+<div class="how-it-works">
+    <h2>How It Works</h2>
+    <div class="steps">
+        <div class="step">
+            <div class="step-number">1</div>
+            <h3>Create an account</h3>
+            <p>Sign up in seconds with just your email.</p>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <h3>Choose your topics</h3>
+            <p>Select the health areas and regions you care about.</p>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <h3>Receive your digest</h3>
+            <p>Get curated publications delivered to your inbox.</p>
+        </div>
     </div>
 </div>
 
 <div class="program-areas">
     <h2>Health Topics We Cover</h2>
-    <ul class="topic-list">
-        <li>HIV/AIDS</li>
-        <li>Malaria</li>
-        <li>Tuberculosis</li>
-        <li>Maternal & Child Health</li>
-        <li>Vaccines & Immunization</li>
-        <li>Essential Medicines</li>
-        <li>Health Systems Strengthening</li>
-    </ul>
+    <div class="topic-pills">
+        <div class="pill-category">
+            <span class="category-label">Infectious Diseases</span>
+            <div class="pills">
+                <span class="pill pill-infectious">HIV/AIDS</span>
+                <span class="pill pill-infectious">Malaria & NTDs</span>
+                <span class="pill pill-infectious">Tuberculosis</span>
+                <span class="pill pill-infectious">Hepatitis</span>
+                <span class="pill pill-infectious">Oxygen Therapy</span>
+                <span class="pill pill-infectious">COVID-19</span>
+            </div>
+        </div>
+        <div class="pill-category">
+            <span class="category-label">Women and Children's Health</span>
+            <div class="pills">
+                <span class="pill pill-women">Maternal & Newborn Health</span>
+                <span class="pill pill-women">Diarrhea & Pneumonia</span>
+                <span class="pill pill-women">Vaccines & Immunization</span>
+                <span class="pill pill-women">Nutrition</span>
+            </div>
+        </div>
+        <div class="pill-category">
+            <span class="category-label">Non-Communicable Diseases</span>
+            <div class="pills">
+                <span class="pill pill-ncd">Cancer</span>
+                <span class="pill pill-ncd">Diabetes & Hypertension</span>
+                <span class="pill pill-ncd">Sickle Cell Disease</span>
+                <span class="pill pill-ncd">Assistive Technology</span>
+            </div>
+        </div>
+        <div class="pill-category">
+            <span class="category-label">Health Systems</span>
+            <div class="pills">
+                <span class="pill pill-systems">Health Financing</span>
+                <span class="pill pill-systems">Health Workforce</span>
+                <span class="pill pill-systems">Digital Health</span>
+            </div>
+        </div>
+        <div class="pill-category">
+            <span class="category-label">Cross-Cutting</span>
+            <div class="pills">
+                <span class="pill pill-cross">Diagnostics</span>
+                <span class="pill pill-cross">Market Shaping</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="source-credibility">
+    <h2>Trusted Sources</h2>
+    <p class="source-intro">We aggregate publications from the world's most authoritative health research institutions.</p>
+    <div class="sources">
+        <div class="source-card">
+            <img src="{{ url_for('static', filename='images/who-logo.png') }}" alt="WHO Logo" class="source-logo-img">
+            <h3>World Health Organization</h3>
+            <p>Official publications, guidelines, and reports from the UN's global health authority.</p>
+        </div>
+        <div class="source-card">
+            <img src="{{ url_for('static', filename='images/pubmed-logo.png') }}" alt="PubMed Logo" class="source-logo-img">
+            <h3>PubMed / MEDLINE</h3>
+            <p>Peer-reviewed research from the world's largest biomedical literature database.</p>
+        </div>
+    </div>
 </div>
 
 <div class="cta-section">
-    <h2>Get Started</h2>
-    <p>Create an account to start receiving personalized health publication digests.</p>
+    <h2>Ready to stay informed?</h2>
+    <p>Join researchers, practitioners, and policy makers who rely on curated health publications.</p>
     <div class="cta-buttons">
-        <a href="{{ url_for('main.register') }}" class="btn btn-primary">Create Account</a>
+        <a href="{{ url_for('main.register') }}" class="btn btn-primary btn-large">Start Your Free Account</a>
         <a href="{{ url_for('main.login') }}" class="btn btn-secondary">Login</a>
     </div>
 </div>

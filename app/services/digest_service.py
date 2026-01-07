@@ -151,7 +151,7 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
             ).all()
 
             for pub, pub_area in matching_pubs:
-                _add_publication_to_dict(pub_dict, pub, pub_area, pref_data['location_type'], pref_data['location_values'])
+                _add_publication_to_dict(pub_dict, pub, pub_area, program_key, pref_data['location_type'], pref_data['location_values'])
 
         # Get publications matching specific subtopics
         for subtopic_key in pref_data['subtopics']:
@@ -195,7 +195,7 @@ def get_program_subscription_publications(user, days_back=30, max_publications=N
     return results
 
 
-def _add_publication_to_dict(pub_dict, pub, pub_area, location_type, location_values):
+def _add_publication_to_dict(pub_dict, pub, pub_area, program_key, location_type, location_values):
     """Add a publication matched by program area to the dict."""
     if pub.id not in pub_dict:
         pub_dict[pub.id] = {
@@ -206,11 +206,28 @@ def _add_publication_to_dict(pub_dict, pub, pub_area, location_type, location_va
             'location_type': location_type,
             'location_values': location_values
         }
-    pub_dict[pub.id]['program_areas'].append({
-        'key': pub_area.program_area_key,
-        'name': get_program_area_name(pub_area.program_area_key),
-        'score': pub_area.relevance_score
-    })
+
+    # Check if this program area is already added
+    if not any(pa['key'] == pub_area.program_area_key for pa in pub_dict[pub.id]['program_areas']):
+        pub_dict[pub.id]['program_areas'].append({
+            'key': pub_area.program_area_key,
+            'name': get_program_area_name(pub_area.program_area_key),
+            'score': pub_area.relevance_score
+        })
+
+    # Also fetch subtopics for this publication (even when matched by program area)
+    pub_subtopics = PublicationSubtopic.query.filter_by(
+        publication_id=pub.id,
+        program_area_key=program_key
+    ).all()
+    for st in pub_subtopics:
+        if not any(existing['subtopic_key'] == st.subtopic_key for existing in pub_dict[pub.id]['subtopics']):
+            pub_dict[pub.id]['subtopics'].append({
+                'program_key': st.program_area_key,
+                'subtopic_key': st.subtopic_key,
+                'name': get_subtopic_name(st.program_area_key, st.subtopic_key),
+                'score': st.relevance_score
+            })
 
 
 def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, location_type, location_values):
