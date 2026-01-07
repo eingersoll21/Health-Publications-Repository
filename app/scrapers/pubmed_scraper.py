@@ -374,11 +374,67 @@ def categorize_publication(title, abstract=None):
     return program_areas, subtopics
 
 
+# Demonyms mapping: country name -> list of adjective/demonym forms
+COUNTRY_DEMONYMS = {
+    "Afghanistan": ["Afghan"],
+    "Bangladesh": ["Bangladeshi"],
+    "Bhutan": ["Bhutanese"],
+    "India": ["Indian"],
+    "Nepal": ["Nepali", "Nepalese"],
+    "Pakistan": ["Pakistani"],
+    "Sri Lanka": ["Sri Lankan"],
+    "Indonesia": ["Indonesian"],
+    "Malaysia": ["Malaysian"],
+    "Philippines": ["Filipino", "Philippine"],
+    "Thailand": ["Thai"],
+    "Vietnam": ["Vietnamese"],
+    "Cambodia": ["Cambodian"],
+    "Myanmar": ["Burmese"],
+    "China": ["Chinese"],
+    "Japan": ["Japanese"],
+    "South Korea": ["Korean", "South Korean"],
+    "Taiwan": ["Taiwanese"],
+    "Nigeria": ["Nigerian"],
+    "Kenya": ["Kenyan"],
+    "Ethiopia": ["Ethiopian"],
+    "Tanzania": ["Tanzanian"],
+    "Uganda": ["Ugandan"],
+    "South Africa": ["South African"],
+    "Ghana": ["Ghanaian"],
+    "Cameroon": ["Cameroonian"],
+    "Malawi": ["Malawian"],
+    "Zambia": ["Zambian"],
+    "Zimbabwe": ["Zimbabwean"],
+    "Rwanda": ["Rwandan"],
+    "Mozambique": ["Mozambican"],
+    "Senegal": ["Senegalese"],
+    "Mali": ["Malian"],
+    "Brazil": ["Brazilian"],
+    "Mexico": ["Mexican"],
+    "Colombia": ["Colombian"],
+    "Peru": ["Peruvian"],
+    "Argentina": ["Argentine", "Argentinian"],
+    "Chile": ["Chilean"],
+    "Guatemala": ["Guatemalan"],
+    "Haiti": ["Haitian"],
+    "Egypt": ["Egyptian"],
+    "Morocco": ["Moroccan"],
+    "Tunisia": ["Tunisian"],
+    "Iran": ["Iranian"],
+    "Iraq": ["Iraqi"],
+    "Yemen": ["Yemeni"],
+    "Syria": ["Syrian"],
+    "Jordan": ["Jordanian"],
+    "Lebanon": ["Lebanese"],
+    "Turkey": ["Turkish"],
+}
+
+
 def detect_regions(title, abstract=None):
     """
     Detect which geographic regions are mentioned in a publication.
 
-    Searches title and abstract for country names and region keywords.
+    Searches title and abstract for country names, demonyms, and region keywords.
     NOTE: Affiliations are intentionally excluded to avoid false positives
     (e.g., tagging a paper as "Pakistan" just because an author works there).
 
@@ -409,11 +465,20 @@ def detect_regions(title, abstract=None):
             if re.search(pattern, text, re.IGNORECASE):
                 matched_terms.append(keyword)
 
-        # Check country names
+        # Check country names and their demonyms
         for country in region_info.get("countries", []):
+            # Check exact country name
             pattern = r'\b' + re.escape(country) + r'\b'
             if re.search(pattern, text, re.IGNORECASE):
                 matched_terms.append(country)
+            else:
+                # Check demonyms for this country
+                demonyms = COUNTRY_DEMONYMS.get(country, [])
+                for demonym in demonyms:
+                    pattern = r'\b' + re.escape(demonym) + r'\b'
+                    if re.search(pattern, text, re.IGNORECASE):
+                        matched_terms.append(country)  # Record the country name, not the demonym
+                        break  # Only add once per country
 
         if matched_terms:
             results[region_key] = matched_terms
