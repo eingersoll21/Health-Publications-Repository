@@ -24,6 +24,7 @@
                     {% set _ = all_programs.append({'key': program_key, 'info': program_info, 'category': category}) %}
                 {% endfor %}
             {% endfor %}
+            {% set all_programs = all_programs|sort(attribute='info.name') %}
 
             <div class="program-cards-grid" id="program-grid">
                 {% for program in all_programs %}
@@ -354,12 +355,13 @@
     margin: 0 0 15px 0;
 }
 
-/* Program Cards Grid - Fixed uniform sizing */
+/* Program Cards Grid - Each tile sizes to its own content */
 .program-cards-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     margin-bottom: 15px;
+    align-items: start;
 }
 .program-card {
     border: 1px solid #e2e8f0;

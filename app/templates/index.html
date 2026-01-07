@@ -5,7 +5,7 @@
 {% block content %}
 <div class="hero">
     <h1>The global health research you need — without the search.</h1>
-    <p class="hero-subtitle">We aggregate the latest publications from various public sources so you can stay current on the topics that matter to you.</p>
+    <p class="hero-subtitle">This tool aggregates the latest publications from various public sources so you can stay current on the topics that matter to you.</p>
 </div>
 
 <div class="features">
@@ -28,7 +28,7 @@
             </div>
         </div>
         <h3>Curated Content</h3>
-        <p>We collect publications from WHO and PubMed covering key global health topics.</p>
+        <p>This tool collects publications from WHO and PubMed covering key global health topics.</p>
     </div>
     <div class="feature-card">
         <div class="feature-preview email-preview">
@@ -156,7 +156,7 @@
 
 <div class="source-credibility">
     <h2>Trusted Sources</h2>
-    <p class="source-intro">We aggregate publications from the world's most authoritative health research institutions.</p>
+    <p class="source-intro">This tool aggregates publications from the world's most authoritative health research institutions.</p>
     <div class="sources">
         <div class="source-card">
             <img src="{{ url_for('static', filename='images/who-logo.png') }}" alt="WHO Logo" class="source-logo-img">
@@ -169,13 +169,14 @@
             <p>Peer-reviewed research from the world's largest biomedical literature database.</p>
         </div>
     </div>
+    <p class="more-sources-hint">More sources coming soon. <a href="{{ url_for('main.suggestions') }}">Suggest a data source &rarr;</a></p>
 </div>
 
 <div class="cta-section">
     <h2>Ready to stay informed?</h2>
     <p>Join researchers, practitioners, and policy makers who rely on curated health publications.</p>
     <div class="cta-buttons">
-        <a href="{{ url_for('main.register') }}" class="btn btn-primary btn-large">Start Your Free Account</a>
+        <a href="{{ url_for('main.register') }}" class="btn btn-primary btn-large">Create Free Account</a>
         <a href="{{ url_for('main.login') }}" class="btn btn-secondary">Login</a>
     </div>
 </div>

@@ -328,6 +328,13 @@ def browse():
     date_to = request.args.get('date_to', '')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
+    # Ahead-of-print filter: default is True (include them), but if parameter is explicitly absent after form submit, exclude
+    # Check if the parameter is in the request at all (form was submitted)
+    if 'include_ahead_of_print' in request.args:
+        include_ahead_of_print = request.args.get('include_ahead_of_print') == '1'
+    else:
+        # First visit or no filters applied - default to True (include ahead-of-print)
+        include_ahead_of_print = True
 
     # Build base query
     query = db.session.query(Publication)
@@ -374,6 +381,10 @@ def browse():
     # Apply source filter
     if source:
         query = query.filter(Publication.source == source)
+
+    # Apply ahead-of-print filter
+    if not include_ahead_of_print:
+        query = query.filter(Publication.is_ahead_of_print == False)
 
     # Apply date range filter
     if date_range == 'custom':
@@ -471,6 +482,7 @@ def browse():
         current_date_from=date_from,
         current_date_to=date_to,
         current_search=search,
+        include_ahead_of_print=include_ahead_of_print,
         # Filter options
         program_choices=program_choices,
         program_areas_with_subtopics=program_areas_with_subtopics,

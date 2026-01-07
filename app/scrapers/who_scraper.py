@@ -34,7 +34,7 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.5",
 }
 
-# Number of publications to fetch from API
+# Number of publications to fetch from API (WHO API hard limit is 100)
 MAX_PUBLICATIONS = 100
 
 

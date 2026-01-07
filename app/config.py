@@ -57,7 +57,7 @@ class Config:
 
     # Scraping settings
     SCRAPER_DELAY_SECONDS = 2  # Delay between requests to be respectful
-    PUBMED_MAX_RESULTS_PER_AREA = int(os.getenv('PUBMED_MAX_RESULTS_PER_AREA', '50'))  # Max papers per program area per run
+    PUBMED_MAX_RESULTS_PER_AREA = int(os.getenv('PUBMED_MAX_RESULTS_PER_AREA', '300'))  # Max papers per program area per run
     SCRAPER_DAYS_LOOKBACK = int(os.getenv('SCRAPER_DAYS_LOOKBACK', '180'))  # Days to look back (default 6 months)
 
     # Digest settings
@@ -483,7 +483,7 @@ PROGRAM_AREAS = {
     "digital_health": {
         "name": "Digital Health",
         "category": "Health Systems",
-        "keywords": ["digital health", "eHealth", "mHealth", "health technology"],
+        "keywords": ["digital health", "eHealth", "mHealth", "health technology", "artificial intelligence", "machine learning"],
         "subtopics": {
             "health_information": {
                 "name": "Health Information Systems",
@@ -496,6 +496,10 @@ PROGRAM_AREAS = {
             "data_analytics": {
                 "name": "Data Analytics & Decision Support",
                 "keywords": ["data analytics", "dashboard", "decision support", "data-driven", "surveillance system"]
+            },
+            "ai_machine_learning": {
+                "name": "AI & Machine Learning",
+                "keywords": ["artificial intelligence", "AI in health", "AI in healthcare", "machine learning", "deep learning", "neural network", "NLP", "natural language processing", "large language model", "LLM", "generative AI", "predictive model", "predictive analytics", "clinical decision support", "computer vision", "image recognition", "algorithm", "automated diagnosis"]
             }
         }
     },
