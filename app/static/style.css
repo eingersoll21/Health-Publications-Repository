@@ -1238,8 +1238,13 @@ body {
 }
 
 .tag-region {
-    background-color: #faf5ff;
-    color: #6b46c1;
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.tag-country {
+    background-color: #ffedd5;
+    color: #c2410c;
 }
 
 /* Ahead of Print Badge with Tooltip */

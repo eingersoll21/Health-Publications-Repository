@@ -826,6 +826,14 @@ def format_publication_for_display(pub_data):
     region_names = [r['name'] for r in pub_data.get('regions', [])]
     subtopic_names = [st['name'] for st in pub_data.get('subtopics', [])]
 
+    # Extract countries from regions' matched_terms
+    countries = []
+    for r in pub_data.get('regions', []):
+        matched_terms = r.get('matched_terms', '')
+        if matched_terms:
+            countries.extend([c.strip() for c in matched_terms.split(',') if c.strip()])
+    countries = list(dict.fromkeys(countries))  # Remove duplicates while preserving order
+
     # Determine tag display:
     # - show_ahead_of_print: True if ahead-of-print AND date is still in the future
     # - is_resurfaced: True if this is a resurfaced publication (now officially published)
@@ -847,6 +855,7 @@ def format_publication_for_display(pub_data):
         'relevance_score': max_score,
         'program_areas': program_area_names,
         'regions': region_names,
+        'countries': countries,
         'subtopics': subtopic_names,
         'from_country_watch': pub_data.get('from_country_watch', False),
         'from_program_sub': pub_data.get('from_program_sub', False)
@@ -1004,6 +1013,8 @@ def create_plain_text_digest(context):
             pub_lines.append(f"  Tags: [{'] ['.join(tags)}]")
         if pub.get('regions'):
             pub_lines.append(f"  Regions: {', '.join(pub['regions'])}")
+        if pub.get('countries'):
+            pub_lines.append(f"  Countries: {', '.join(pub['countries'][:5])}")
         pub_lines.append(f"  Link: {pub['url']}")
         if pub['abstract']:
             pub_lines.append(f"  {pub['abstract']}")

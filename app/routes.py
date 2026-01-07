@@ -429,9 +429,15 @@ def browse():
         subtopics = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
         subtopic_names = [get_subtopic_name(st.program_area_key, st.subtopic_key) for st in subtopics]
 
-        # Get regions
+        # Get regions and countries
         regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
         region_names = [get_region_name(r.region_key) for r in regions]
+        # Extract countries from matched_terms
+        countries = []
+        for r in regions:
+            if r.matched_terms:
+                countries.extend([c.strip() for c in r.matched_terms.split(',') if c.strip()])
+        countries = list(set(countries))  # Remove duplicates
 
         # Truncate abstract
         abstract_preview = pub.abstract[:200] + '...' if pub.abstract and len(pub.abstract) > 200 else pub.abstract
@@ -446,6 +452,7 @@ def browse():
             'program_areas': program_areas,
             'subtopics': subtopic_names,
             'regions': region_names,
+            'countries': countries,
             'is_ahead_of_print': pub.is_ahead_of_print
         })
 
@@ -1006,12 +1013,24 @@ def reading_list():
         subtopics_db = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
         subtopics = [get_subtopic_name(st.program_area_key, st.subtopic_key) for st in subtopics_db]
 
+        # Get regions and countries
+        regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
+        region_names = [get_region_name(r.region_key) for r in regions]
+        # Extract countries from matched_terms
+        countries = []
+        for r in regions:
+            if r.matched_terms:
+                countries.extend([c.strip() for c in r.matched_terms.split(',') if c.strip()])
+        countries = list(set(countries))  # Remove duplicates
+
         saved_pubs.append({
             'saved': saved,
             'publication': pub,
             'folder_name': saved.folder.name if saved.folder else None,
             'program_areas': program_areas,
-            'subtopics': subtopics
+            'subtopics': subtopics,
+            'regions': region_names,
+            'countries': countries
         })
 
     return render_template(

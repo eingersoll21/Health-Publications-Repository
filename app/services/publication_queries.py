@@ -168,9 +168,24 @@ def _add_publication_to_dict(pub_dict, pub, pub_area, program_key, location_type
             'program_areas': [],
             'subtopics': [],
             'regions': [],
+            'countries': [],
             'location_type': location_type,
             'location_values': location_values
         }
+        # Fetch regions and countries for this publication
+        pub_regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
+        for region in pub_regions:
+            pub_dict[pub.id]['regions'].append({
+                'key': region.region_key,
+                'name': get_region_name(region.region_key),
+                'matched_terms': region.matched_terms
+            })
+            # Extract countries from matched_terms
+            if region.matched_terms:
+                for country in region.matched_terms.split(','):
+                    country = country.strip()
+                    if country and country not in pub_dict[pub.id]['countries']:
+                        pub_dict[pub.id]['countries'].append(country)
 
     # Check if this program area is already added
     if not any(pa['key'] == pub_area.program_area_key for pa in pub_dict[pub.id]['program_areas']):
@@ -203,6 +218,7 @@ def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, location_type
             'program_areas': [],
             'subtopics': [],
             'regions': [],
+            'countries': [],
             'location_type': location_type,
             'location_values': location_values
         }
@@ -217,6 +233,20 @@ def _add_subtopic_publication_to_dict(pub_dict, pub, pub_subtopic, location_type
                 'name': get_program_area_name(area.program_area_key),
                 'score': area.relevance_score
             })
+        # Fetch regions and countries for this publication
+        pub_regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
+        for region in pub_regions:
+            pub_dict[pub.id]['regions'].append({
+                'key': region.region_key,
+                'name': get_region_name(region.region_key),
+                'matched_terms': region.matched_terms
+            })
+            # Extract countries from matched_terms
+            if region.matched_terms:
+                for country in region.matched_terms.split(','):
+                    country = country.strip()
+                    if country and country not in pub_dict[pub.id]['countries']:
+                        pub_dict[pub.id]['countries'].append(country)
 
     # Check if this subtopic is already added
     if not any(st['subtopic_key'] == pub_subtopic.subtopic_key for st in pub_dict[pub.id]['subtopics']):
