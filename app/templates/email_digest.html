@@ -130,29 +130,7 @@
                                         {% endfor %}
                                     </td>
                                 </tr>
-                                {% if pub.regions or pub.countries %}
-                                <tr>
-                                    <td style="padding-top: 4px;">
-                                        {# Regions (blue) #}
-                                        {% for region in pub.regions %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #dbeafe; color: #1e40af; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ region }}
-                                        </span>
-                                        {% endfor %}
-                                        {# Countries (orange) #}
-                                        {% for country in pub.countries[:3] %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ffedd5; color: #c2410c; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ country }}
-                                        </span>
-                                        {% endfor %}
-                                        {% if pub.countries|length > 3 %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            +{{ pub.countries|length - 3 }} more
-                                        </span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endif %}
+                                {# Region/country tags hidden - detection has false positives from author affiliations #}
                                 {% if pub.abstract %}
                                 <tr>
                                     <td style="padding-top: 8px;">
@@ -235,29 +213,7 @@
                                         {% endfor %}
                                     </td>
                                 </tr>
-                                {% if pub.regions or pub.countries %}
-                                <tr>
-                                    <td style="padding-top: 4px;">
-                                        {# Regions (blue) #}
-                                        {% for region in pub.regions %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #dbeafe; color: #1e40af; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ region }}
-                                        </span>
-                                        {% endfor %}
-                                        {# Countries (orange) #}
-                                        {% for country in pub.countries[:3] %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ffedd5; color: #c2410c; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ country }}
-                                        </span>
-                                        {% endfor %}
-                                        {% if pub.countries|length > 3 %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            +{{ pub.countries|length - 3 }} more
-                                        </span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endif %}
+                                {# Region/country tags hidden - detection has false positives from author affiliations #}
                                 {% if pub.abstract %}
                                 <tr>
                                     <td style="padding-top: 8px;">
@@ -360,29 +316,7 @@
                                         {% endfor %}
                                     </td>
                                 </tr>
-                                {% if pub.regions or pub.countries %}
-                                <tr>
-                                    <td style="padding-top: 4px;">
-                                        {# Regions (blue) #}
-                                        {% for region in pub.regions %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #dbeafe; color: #1e40af; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ region }}
-                                        </span>
-                                        {% endfor %}
-                                        {# Countries (orange) #}
-                                        {% for country in pub.countries[:3] %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ffedd5; color: #c2410c; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ country }}
-                                        </span>
-                                        {% endfor %}
-                                        {% if pub.countries|length > 3 %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            +{{ pub.countries|length - 3 }} more
-                                        </span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endif %}
+                                {# Region/country tags hidden - detection has false positives from author affiliations #}
                                 {% if pub.abstract %}
                                 <tr>
                                     <td style="padding-top: 8px;">
@@ -464,29 +398,7 @@
                                         {% endfor %}
                                     </td>
                                 </tr>
-                                {% if pub.regions or pub.countries %}
-                                <tr>
-                                    <td style="padding-top: 4px;">
-                                        {# Regions (blue) #}
-                                        {% for region in pub.regions %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #dbeafe; color: #1e40af; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ region }}
-                                        </span>
-                                        {% endfor %}
-                                        {# Countries (orange) #}
-                                        {% for country in pub.countries[:3] %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ffedd5; color: #c2410c; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ country }}
-                                        </span>
-                                        {% endfor %}
-                                        {% if pub.countries|length > 3 %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            +{{ pub.countries|length - 3 }} more
-                                        </span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endif %}
+                                {# Region/country tags hidden - detection has false positives from author affiliations #}
                                 {% if pub.abstract %}
                                 <tr>
                                     <td style="padding-top: 8px;">

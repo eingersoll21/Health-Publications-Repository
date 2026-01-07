@@ -116,17 +116,7 @@
                         {% for area in item.program_areas[:2] %}
                         <span class="tag tag-program-muted">{{ area }}</span>
                         {% endfor %}
-                        {# Regions (blue) #}
-                        {% for region in item.regions[:2] %}
-                        <span class="tag tag-region">{{ region }}</span>
-                        {% endfor %}
-                        {# Countries (orange) #}
-                        {% for country in item.countries[:2] %}
-                        <span class="tag tag-country">{{ country }}</span>
-                        {% endfor %}
-                        {% if item.countries|length > 2 %}
-                        <span class="tag tag-more">+{{ item.countries|length - 2 }} more</span>
-                        {% endif %}
+                        {# Region/country tags hidden - detection has false positives from author affiliations #}
                     </div>
 
                     <div class="saved-pub-info">

@@ -172,17 +172,8 @@
                     {% for area in pub.program_areas %}
                     <span class="tag tag-program-muted">{{ area }}</span>
                     {% endfor %}
-                    {# Regions (blue) #}
-                    {% for region in pub.regions %}
-                    <span class="tag tag-region">{{ region }}</span>
-                    {% endfor %}
-                    {# Countries (orange) #}
-                    {% for country in pub.countries[:3] %}
-                    <span class="tag tag-country">{{ country }}</span>
-                    {% endfor %}
-                    {% if pub.countries|length > 3 %}
-                    <span class="tag tag-more">+{{ pub.countries|length - 3 }} more</span>
-                    {% endif %}
+                    {# Region/country tags hidden - detection has false positives from author affiliations #}
+                    {# Filter functionality still works, just not displaying on cards #}
                 </div>
 
                 {% if pub.abstract %}

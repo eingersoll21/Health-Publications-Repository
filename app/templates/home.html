@@ -141,17 +141,7 @@
                         {% if item.primary_program_name %}
                         <span class="tag tag-program-muted">{{ item.primary_program_name }}</span>
                         {% endif %}
-                        {# Regions (blue) #}
-                        {% for region in item.regions[:2] %}
-                        <span class="tag tag-region">{{ region.name }}</span>
-                        {% endfor %}
-                        {# Countries (orange) #}
-                        {% for country in item.countries[:2] %}
-                        <span class="tag tag-country">{{ country }}</span>
-                        {% endfor %}
-                        {% if item.countries|length > 2 %}
-                        <span class="tag tag-more">+{{ item.countries|length - 2 }} more</span>
-                        {% endif %}
+                        {# Region/country tags hidden - detection has false positives from author affiliations #}
                         <span class="pub-source source-{{ item.publication.source|lower }}">{{ item.publication.source }}</span>
                         {% if item.publication.publication_date %}
                         <span class="pub-date">{{ item.publication.publication_date.strftime('%b %d, %Y') }}</span>
