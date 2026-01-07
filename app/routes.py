@@ -155,7 +155,7 @@ def home():
             exclude_sent=False
         )
 
-        # Format for template - include subtopics
+        # Format for template - include subtopics, regions, countries
         for pub_data in matching_pubs:
             primary_program = pub_data['program_areas'][0] if pub_data['program_areas'] else None
             recent_matching_publications.append({
@@ -163,7 +163,9 @@ def home():
                 'primary_program_key': primary_program['key'] if primary_program else None,
                 'primary_program_name': primary_program['name'] if primary_program else None,
                 'subtopics': pub_data.get('subtopics', []),  # Include subtopics
-                'program_areas': pub_data.get('program_areas', [])  # Include all program areas
+                'program_areas': pub_data.get('program_areas', []),  # Include all program areas
+                'regions': pub_data.get('regions', []),  # Include regions
+                'countries': pub_data.get('countries', [])  # Include countries
             })
 
     # === Get publication counts by subscribed program area ===
