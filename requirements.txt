@@ -9,7 +9,6 @@ werkzeug==3.0.1
 # HTTP requests and web scraping
 requests==2.31.0
 beautifulsoup4==4.12.2
-lxml==4.9.3
 
 # PubMed API access
 biopython==1.82

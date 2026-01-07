@@ -52,7 +52,7 @@ def fetch_page(url):
         logger.info(f"Fetching: {url}")
         response = requests.get(url, headers=HEADERS, timeout=30)
         response.raise_for_status()
-        return BeautifulSoup(response.text, "lxml")
+        return BeautifulSoup(response.text, "html.parser")
     except requests.RequestException as e:
         logger.error(f"Failed to fetch {url}: {e}")
         return None
@@ -534,7 +534,7 @@ def parse_api_publication(api_pub):
     overview = api_pub.get('Overview', '')
     if overview:
         # Strip HTML tags from overview
-        soup = BeautifulSoup(overview, 'lxml')
+        soup = BeautifulSoup(overview, 'html.parser')
         abstract = soup.get_text(strip=True)[:2000]
     elif api_pub.get('Summary'):
         abstract = api_pub.get('Summary')[:2000]
