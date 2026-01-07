@@ -374,29 +374,27 @@ def categorize_publication(title, abstract=None):
     return program_areas, subtopics
 
 
-def detect_regions(title, abstract=None, affiliations=None):
+def detect_regions(title, abstract=None):
     """
     Detect which geographic regions are mentioned in a publication.
 
-    Searches title, abstract, and author affiliations for country names
-    and region keywords.
+    Searches title and abstract for country names and region keywords.
+    NOTE: Affiliations are intentionally excluded to avoid false positives
+    (e.g., tagging a paper as "Pakistan" just because an author works there).
 
     Args:
         title: Publication title
         abstract: Publication abstract (optional)
-        affiliations: Author affiliations string (optional)
 
     Returns:
         Dictionary mapping region_key to list of matched terms
     """
     results = {}
 
-    # Combine title, abstract, and affiliations for searching
+    # Combine title and abstract for searching (NOT affiliations - causes false positives)
     text = (title or "")
     if abstract:
         text += " " + abstract
-    if affiliations:
-        text += " " + affiliations
 
     for region_key, region_info in REGIONS_AND_COUNTRIES.items():
         # Skip 'global' region - it has no keywords/countries
@@ -541,11 +539,10 @@ def fetch_all_program_areas():
                         paper.get("title", ""),
                         paper.get("abstract")
                     )
-                    # Detect regions (including affiliations for PubMed)
+                    # Detect regions (title and abstract only - not affiliations)
                     regions = detect_regions(
                         paper.get("title", ""),
-                        paper.get("abstract"),
-                        paper.get("affiliations")
+                        paper.get("abstract")
                     )
                     paper["program_areas"] = program_areas
                     paper["subtopics"] = subtopics
@@ -563,12 +560,11 @@ def fetch_all_program_areas():
                     existing_subtopics.update(new_subtopics)
                     all_publications[pmid]["program_areas"] = existing_areas
                     all_publications[pmid]["subtopics"] = existing_subtopics
-                    # Update regions as well
+                    # Update regions as well (title and abstract only)
                     existing_regions = all_publications[pmid].get("regions", {})
                     new_regions = detect_regions(
                         paper.get("title", ""),
-                        paper.get("abstract"),
-                        paper.get("affiliations")
+                        paper.get("abstract")
                     )
                     for region_key, terms in new_regions.items():
                         if region_key in existing_regions:
