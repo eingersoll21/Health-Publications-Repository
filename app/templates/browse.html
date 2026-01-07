@@ -6,12 +6,6 @@
 <div class="browse-page">
     <h1>Health Research Database</h1>
 
-    {% if db_date_range %}
-    <p class="db-info">
-        Database contains publications from {{ db_date_range.earliest.strftime('%B %d, %Y') }} to {{ db_date_range.latest.strftime('%B %d, %Y') }}.
-    </p>
-    {% endif %}
-
     <!-- Filters Section -->
     <div class="filters-section">
         <form method="GET" action="{{ url_for('main.browse') }}" id="filter-form">
