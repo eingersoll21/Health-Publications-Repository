@@ -64,4 +64,12 @@ def init_db(app):
 
 # Create app instance for gunicorn (gunicorn app:app)
 app = create_app()
-init_db(app)
+
+# Initialize database tables (create if they don't exist)
+# This runs once when the app starts
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception as e:
+        import logging
+        logging.warning(f"Could not create database tables: {e}")

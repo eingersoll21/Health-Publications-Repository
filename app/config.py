@@ -24,12 +24,16 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', secrets.token_hex(32))
     DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-    # Database settings - SQLite database stored in data folder
-    # Use DATABASE_URL env var if set, otherwise use relative path
-    SQLALCHEMY_DATABASE_URI = os.getenv(
+    # Database settings
+    # Use DATABASE_URL env var if set, otherwise use SQLite for local dev
+    _database_url = os.getenv(
         'DATABASE_URL',
         f"sqlite:///{BASE_DIR / 'data' / 'health_tracker.db'}"
     )
+    # Render uses postgres:// but SQLAlchemy 2.0+ requires postgresql://
+    if _database_url.startswith('postgres://'):
+        _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_DATABASE_URI = _database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Base URL for email links (unsubscribe, preferences, etc.)
