@@ -45,8 +45,11 @@ class Config:
     # Email settings (SMTP)
     SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
-    EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS', '')
+    EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS', '')  # Used as 'From' address
     EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+    # SMTP_USERNAME for services like Brevo where login differs from 'From' address
+    # Falls back to EMAIL_ADDRESS if not set
+    SMTP_USERNAME = os.getenv('SMTP_USERNAME', '') or os.getenv('EMAIL_ADDRESS', '')
 
     # PubMed API settings
     PUBMED_EMAIL = os.getenv('PUBMED_EMAIL', '')

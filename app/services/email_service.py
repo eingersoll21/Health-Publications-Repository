@@ -69,8 +69,9 @@ def send_email(to_email, subject, html_content, text_content=None):
             server.starttls()
             server.ehlo()
 
-            logger.info(f"Authenticating as {Config.EMAIL_ADDRESS}")
-            server.login(Config.EMAIL_ADDRESS, Config.EMAIL_PASSWORD)
+            smtp_username = Config.SMTP_USERNAME or Config.EMAIL_ADDRESS
+            logger.info(f"Authenticating as {smtp_username}")
+            server.login(smtp_username, Config.EMAIL_PASSWORD)
 
             logger.info(f"Sending email to {to_email}")
             server.sendmail(Config.EMAIL_ADDRESS, to_email, msg.as_string())
@@ -119,7 +120,8 @@ def test_email_connection():
             server.ehlo()
             server.starttls()
             server.ehlo()
-            server.login(Config.EMAIL_ADDRESS, Config.EMAIL_PASSWORD)
+            smtp_username = Config.SMTP_USERNAME or Config.EMAIL_ADDRESS
+            server.login(smtp_username, Config.EMAIL_PASSWORD)
 
         logger.info("SMTP connection test successful!")
         return True
