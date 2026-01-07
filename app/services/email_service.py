@@ -64,17 +64,24 @@ def send_email(to_email, subject, html_content, text_content=None):
         # Connect to SMTP server and send (with 10 second timeout)
         logger.info(f"Connecting to SMTP server {Config.SMTP_SERVER}:{Config.SMTP_PORT}")
 
-        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
+        smtp_username = Config.SMTP_USERNAME or Config.EMAIL_ADDRESS
 
-            smtp_username = Config.SMTP_USERNAME or Config.EMAIL_ADDRESS
-            logger.info(f"Authenticating as {smtp_username}")
-            server.login(smtp_username, Config.EMAIL_PASSWORD)
-
-            logger.info(f"Sending email to {to_email}")
-            server.sendmail(Config.EMAIL_ADDRESS, to_email, msg.as_string())
+        # Use SSL for port 465, STARTTLS for port 587
+        if Config.SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
+                logger.info(f"Authenticating as {smtp_username}")
+                server.login(smtp_username, Config.EMAIL_PASSWORD)
+                logger.info(f"Sending email to {to_email}")
+                server.sendmail(Config.EMAIL_ADDRESS, to_email, msg.as_string())
+        else:
+            with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                logger.info(f"Authenticating as {smtp_username}")
+                server.login(smtp_username, Config.EMAIL_PASSWORD)
+                logger.info(f"Sending email to {to_email}")
+                server.sendmail(Config.EMAIL_ADDRESS, to_email, msg.as_string())
 
         logger.info(f"Email sent successfully to {to_email}")
         return True
@@ -116,12 +123,18 @@ def test_email_connection():
     try:
         logger.info(f"Testing connection to {Config.SMTP_SERVER}:{Config.SMTP_PORT}")
 
-        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            smtp_username = Config.SMTP_USERNAME or Config.EMAIL_ADDRESS
-            server.login(smtp_username, Config.EMAIL_PASSWORD)
+        smtp_username = Config.SMTP_USERNAME or Config.EMAIL_ADDRESS
+
+        # Use SSL for port 465, STARTTLS for port 587
+        if Config.SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
+                server.login(smtp_username, Config.EMAIL_PASSWORD)
+        else:
+            with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT, timeout=10) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(smtp_username, Config.EMAIL_PASSWORD)
 
         logger.info("SMTP connection test successful!")
         return True
