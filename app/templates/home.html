@@ -8,66 +8,56 @@
         <h1>Welcome back, {{ current_user.first_name }}!</h1>
     </div>
 
-    <div class="dashboard-grid">
-        <!-- Subscription Summary Card -->
+    <!-- ROW 1: Three Summary Cards -->
+    <div class="dashboard-cards-row">
+        <!-- Card 1: Your Subscriptions -->
         <div class="dashboard-card">
             <div class="card-header">
-                <span class="card-icon">📊</span>
-                <h2>Your Subscription Summary</h2>
+                <h2>Your Subscriptions</h2>
             </div>
             <div class="card-content">
-                <div class="stat-row">
-                    <span class="stat-label">Program Subscriptions:</span>
-                    <span class="stat-value">{{ program_subscription_count }} topic{{ 's' if program_subscription_count != 1 else '' }}</span>
+                <div class="stat-highlight">
+                    <span class="stat-big-number">{{ program_subscription_count }}</span>
+                    <span class="stat-label">program topic{{ 's' if program_subscription_count != 1 else '' }}</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">Country Watch:</span>
-                    <span class="stat-value">{{ country_watch_count }} countr{{ 'ies' if country_watch_count != 1 else 'y' }}/region{{ 's' if country_watch_count != 1 else '' }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Digest Frequency:</span>
-                    <span class="stat-value">{{ current_user.digest_frequency|capitalize }}</span>
+                <div class="stat-highlight">
+                    <span class="stat-big-number">{{ country_watch_count }}</span>
+                    <span class="stat-label">country watch{{ 'es' if country_watch_count != 1 else '' }}</span>
                 </div>
                 {% if next_digest_info %}
-                <div class="stat-row next-digest">
-                    <span class="stat-label">Next Digest:</span>
-                    <span class="stat-value">{{ next_digest_info.schedule_text }} ({{ next_digest_info.timezone }})</span>
+                <div class="stat-row frequency-badge">
+                    <span class="frequency-pill">{{ next_digest_info.frequency }}</span>
                 </div>
                 {% endif %}
             </div>
             <div class="card-action">
-                <a href="{{ url_for('main.preferences') }}" class="btn btn-primary">Edit My Subscriptions</a>
+                <a href="{{ url_for('main.preferences') }}" class="btn btn-primary">Edit Subscriptions</a>
             </div>
         </div>
 
-        <!-- Publication Updates Card -->
+        <!-- Card 2: Next Digest -->
         <div class="dashboard-card">
             <div class="card-header">
-                <span class="card-icon">📬</span>
-                <h2>Publication Updates</h2>
+                <h2>Next Digest</h2>
             </div>
             <div class="card-content">
-                {% if current_user.last_digest_sent %}
-                <p class="update-message">
-                    <strong>{{ new_publications_count }}</strong> new publication{{ 's' if new_publications_count != 1 else '' }}
-                    match{{ '' if new_publications_count != 1 else 'es' }} your subscriptions
-                    since your last digest on <strong>{{ current_user.last_digest_sent.strftime('%B %d, %Y') }}</strong>.
-                </p>
+                {% if next_digest_info %}
+                <div class="next-digest-display">
+                    <div class="digest-schedule">{{ next_digest_info.schedule_text }}</div>
+                    <div class="digest-timezone">{{ next_digest_info.timezone }}</div>
+                </div>
                 {% else %}
-                <p class="update-message">
-                    You haven't received a digest yet. Set up your subscriptions to start receiving personalized publication updates!
-                </p>
+                <p class="no-digest-message">Set up your subscriptions to receive personalized digests.</p>
                 {% endif %}
             </div>
             <div class="card-action">
-                <a href="{{ url_for('main.browse') }}" class="btn btn-primary">Browse Publications</a>
+                <a href="{{ url_for('main.send_test_digest') }}" class="btn btn-secondary">Send Test Digest Now</a>
             </div>
         </div>
 
-        <!-- Database Stats Card -->
+        <!-- Card 3: Database Stats -->
         <div class="dashboard-card">
             <div class="card-header">
-                <span class="card-icon">🗄️</span>
                 <h2>Database Stats</h2>
             </div>
             <div class="card-content">
@@ -76,8 +66,12 @@
                     <span class="stat-value">{{ total_publications|default(0) }}</span>
                 </div>
                 <div class="stat-row">
-                    <span class="stat-label">Sources:</span>
-                    <span class="stat-value">WHO ({{ who_count }}), PubMed ({{ pubmed_count }})</span>
+                    <span class="stat-label">WHO:</span>
+                    <span class="stat-value">{{ who_count }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">PubMed:</span>
+                    <span class="stat-value">{{ pubmed_count }}</span>
                 </div>
                 {% if date_range %}
                 <div class="stat-row">
@@ -85,30 +79,146 @@
                     <span class="stat-value">{{ date_range.earliest.strftime('%b %Y') }} - {{ date_range.latest.strftime('%b %Y') }}</span>
                 </div>
                 {% endif %}
-                {% if last_scraper_run %}
-                <div class="stat-row">
-                    <span class="stat-label">Last Updated:</span>
-                    <span class="stat-value">{{ last_scraper_run.run_at.strftime('%B %d, %Y at %H:%M') }}</span>
+            </div>
+            <div class="card-action">
+                <a href="{{ url_for('main.browse') }}" class="btn btn-primary">Browse All</a>
+            </div>
+        </div>
+
+        <!-- Card 4: Reading List -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2>Reading List</h2>
+            </div>
+            <div class="card-content">
+                <div class="stat-highlight">
+                    <span class="stat-big-number">{{ reading_list_total|default(0) }}</span>
+                    <span class="stat-label">saved</span>
+                </div>
+                <div class="stat-highlight">
+                    <span class="stat-big-number">{{ reading_list_unread|default(0) }}</span>
+                    <span class="stat-label">unread</span>
+                </div>
+                {% if reading_list_folders %}
+                <div class="reading-list-folders-preview">
+                    {% for folder in reading_list_folders[:2] %}
+                    <span class="folder-pill">{{ folder.name }} ({{ folder.count }})</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
+            </div>
+            <div class="card-action">
+                <a href="{{ url_for('main.reading_list') }}" class="btn btn-primary">View Reading List</a>
             </div>
         </div>
     </div>
 
-    <!-- About Section -->
-    <div class="about-section">
-        <div class="card-header">
-            <span class="card-icon">💡</span>
-            <h2>About This Tool</h2>
+    <!-- ROW 2: New In Your Topics -->
+    <div class="new-in-topics-section">
+        <div class="section-header">
+            <h2>New In Your Topics</h2>
+            {% if recent_matching_count > 0 %}
+            <span class="new-count-badge">({{ recent_matching_count }} new this week)</span>
+            {% endif %}
         </div>
-        <p>
-            This tool aggregates health publications from WHO and PubMed to help global health
-            program teams stay current on research and guidance relevant to their work. Set up
-            your subscriptions to receive personalized email digests.
-        </p>
-        <div class="about-action">
-            <a href="{{ url_for('main.suggestions') }}" class="btn btn-secondary">Have a suggestion? Tell us how to improve</a>
+
+        {% if recent_matching_publications %}
+        <div class="publications-feed">
+            {% for item in recent_matching_publications %}
+            <div class="publication-feed-item" data-publication-id="{{ item.publication.id }}">
+                <div class="pub-feed-header">
+                    <div class="pub-meta">
+                        {# Show subtopics first (primary, teal color) - limit to 2 #}
+                        {% if item.subtopics %}
+                            {% for subtopic in item.subtopics[:2] %}
+                            <span class="tag tag-subtopic">{{ subtopic.name }}</span>
+                            {% endfor %}
+                            {% if item.subtopics|length > 2 %}
+                            <span class="tag tag-more">+{{ item.subtopics|length - 2 }} more</span>
+                            {% endif %}
+                        {% endif %}
+                        {# Show program area (secondary, muted color) #}
+                        {% if item.primary_program_name %}
+                        <span class="tag tag-program-muted">{{ item.primary_program_name }}</span>
+                        {% endif %}
+                        <span class="pub-source source-{{ item.publication.source|lower }}">{{ item.publication.source }}</span>
+                        {% if item.publication.publication_date %}
+                        <span class="pub-date">{{ item.publication.publication_date.strftime('%b %d, %Y') }}</span>
+                        {% endif %}
+                        {% if item.publication.is_ahead_of_print %}
+                        <span class="ahead-of-print-badge">
+                            Ahead of Print <span class="info-icon">&#9432;</span>
+                            <span class="tooltip">
+                                <span class="tooltip-title">What is Ahead of Print?</span>
+                                <span class="tooltip-text">This publication has been accepted by a journal but is not yet in its final published form. Typically, only the abstract is available. The full text will be accessible once officially published.</span>
+                            </span>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <button class="bookmark-btn" data-publication-id="{{ item.publication.id }}" onclick="toggleSavePublication({{ item.publication.id }}, this)" title="Save to Reading List">
+                        &#9734;
+                    </button>
+                </div>
+                <h3 class="pub-title">
+                    <a href="{{ item.publication.url }}" target="_blank" rel="noopener">{{ item.publication.title }}</a>
+                </h3>
+            </div>
+            {% endfor %}
         </div>
+        <div class="section-footer">
+            <a href="{{ url_for('main.browse') }}" class="btn btn-secondary">View All Matching Publications</a>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            {% if user_program_keys %}
+            <p>No new publications matching your topics this week.</p>
+            <p class="empty-hint">Try expanding your subscriptions or browse the full database.</p>
+            {% else %}
+            <p>You haven't set up any subscriptions yet.</p>
+            <p class="empty-hint">Choose your topics to see personalized publication updates here.</p>
+            {% endif %}
+            <a href="{{ url_for('main.preferences') }}" class="btn btn-primary">Set Up Subscriptions</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ROW 3: Your Topics at a Glance -->
+    <div class="topics-glance-section">
+        <div class="section-header">
+            <h2>Your Topics at a Glance</h2>
+        </div>
+
+        {% if program_counts %}
+        <div class="topics-pills-container">
+            {% for key, data in program_counts.items() %}
+            <span class="topic-count-pill">{{ data.name }} <span class="pill-count">({{ data.count }})</span></span>
+            {% endfor %}
+        </div>
+
+        {% if user_country_watches %}
+        <div class="regions-following">
+            <span class="regions-label">Regions you follow:</span>
+            <span class="regions-list">{{ user_country_watches|join(', ') }}</span>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <p>You haven't set up any subscriptions yet.</p>
+            <p class="empty-hint">Choose your topics to start receiving personalized updates.</p>
+            <a href="{{ url_for('main.preferences') }}" class="btn btn-primary">Set Up Subscriptions</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ROW 4: Quick Actions Bar -->
+    <div class="quick-actions-bar">
+        <a href="{{ url_for('main.send_test_digest') }}" class="btn btn-outline">Send Me a Test Digest</a>
+        <a href="{{ url_for('main.preferences') }}" class="btn btn-outline">Add More Topics</a>
+        <a href="{{ url_for('main.suggestions') }}" class="btn btn-outline">Suggest a Feature</a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='reading-list.js') }}"></script>
 {% endblock %}

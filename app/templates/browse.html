@@ -36,12 +36,16 @@
                 <!-- Subtopic (dynamic based on program) -->
                 <div class="filter-group">
                     <label for="subtopic">Subtopic</label>
-                    <select id="subtopic" name="subtopic">
+                    <select id="subtopic" name="subtopic" {% if not current_program %}disabled{% endif %}>
+                        {% if current_program %}
                         <option value="">All Subtopics</option>
-                        {% if current_program and current_program in program_areas_with_subtopics %}
-                            {% for subtopic in program_areas_with_subtopics[current_program].subtopics %}
-                            <option value="{{ subtopic.key }}" {% if current_subtopic == subtopic.key %}selected{% endif %}>{{ subtopic.name }}</option>
-                            {% endfor %}
+                            {% if current_program in program_subtopics_dropdown %}
+                                {% for subtopic in program_subtopics_dropdown[current_program].subtopics %}
+                                <option value="{{ subtopic.key }}" {% if current_subtopic == subtopic.key %}selected{% endif %}>{{ subtopic.name }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        {% else %}
+                        <option value="">Select a program area first</option>
                         {% endif %}
                     </select>
                 </div>
@@ -131,15 +135,26 @@
         {% if publications %}
         <div class="publications-list">
             {% for pub in publications %}
-            <div class="publication-card">
+            <div class="publication-card" data-publication-id="{{ pub.id }}">
                 <div class="pub-header">
-                    <span class="pub-source source-{{ pub.source|lower }}">{{ pub.source }}</span>
-                    {% if pub.date %}
-                    <span class="pub-date">{{ pub.date.strftime('%B %Y') }}</span>
-                    {% endif %}
-                    {% if pub.is_ahead_of_print %}
-                    <span class="tag tag-ahead-of-print">Ahead of Print</span>
-                    {% endif %}
+                    <div class="pub-header-left">
+                        <span class="pub-source source-{{ pub.source|lower }}">{{ pub.source }}</span>
+                        {% if pub.date %}
+                        <span class="pub-date">{{ pub.date.strftime('%B %Y') }}</span>
+                        {% endif %}
+                        {% if pub.is_ahead_of_print %}
+                        <span class="ahead-of-print-badge">
+                            Ahead of Print <span class="info-icon">&#9432;</span>
+                            <span class="tooltip">
+                                <span class="tooltip-title">What is Ahead of Print?</span>
+                                <span class="tooltip-text">This publication has been accepted by a journal but is not yet in its final published form. Typically, only the abstract is available. The full text will be accessible once officially published.</span>
+                            </span>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <button class="bookmark-btn" data-publication-id="{{ pub.id }}" onclick="toggleSavePublication({{ pub.id }}, this)" title="Save to Reading List">
+                        &#9734;
+                    </button>
                 </div>
 
                 <h3 class="pub-title">
@@ -147,12 +162,18 @@
                 </h3>
 
                 <div class="pub-tags">
-                    {% for area in pub.program_areas %}
-                    <span class="tag tag-program">{{ area }}</span>
-                    {% endfor %}
-                    {% for subtopic in pub.subtopics %}
+                    {# Subtopics first (primary color) - show up to 4 #}
+                    {% for subtopic in pub.subtopics[:4] %}
                     <span class="tag tag-subtopic">{{ subtopic }}</span>
                     {% endfor %}
+                    {% if pub.subtopics|length > 4 %}
+                    <span class="tag tag-more">+{{ pub.subtopics|length - 4 }} more</span>
+                    {% endif %}
+                    {# Program areas second (muted color) #}
+                    {% for area in pub.program_areas %}
+                    <span class="tag tag-program-muted">{{ area }}</span>
+                    {% endfor %}
+                    {# Regions third (different color) #}
                     {% for region in pub.regions %}
                     <span class="tag tag-region">{{ region }}</span>
                     {% endfor %}
@@ -203,8 +224,8 @@
 
 {% block scripts %}
 <script>
-// Store subtopics data for dynamic dropdown
-const programSubtopics = {{ program_areas_with_subtopics | tojson | safe }};
+// Store subtopics data for dynamic dropdown (flat structure: {program_key: {subtopics: [{key, name}]}})
+const programSubtopics = {{ program_subtopics_dropdown | tojson | safe }};
 const countriesByRegion = {{ countries_by_region | tojson | safe }};
 
 // Update subtopic dropdown when program changes
@@ -212,10 +233,11 @@ document.getElementById('program').addEventListener('change', function() {
     const programKey = this.value;
     const subtopicSelect = document.getElementById('subtopic');
 
-    // Clear current options
-    subtopicSelect.innerHTML = '<option value="">All Subtopics</option>';
-
     if (programKey && programSubtopics[programKey]) {
+        // Enable the dropdown and populate with subtopics
+        subtopicSelect.disabled = false;
+        subtopicSelect.innerHTML = '<option value="">All Subtopics</option>';
+
         const subtopics = programSubtopics[programKey].subtopics || [];
         subtopics.forEach(function(subtopic) {
             const option = document.createElement('option');
@@ -223,6 +245,10 @@ document.getElementById('program').addEventListener('change', function() {
             option.textContent = subtopic.name;
             subtopicSelect.appendChild(option);
         });
+    } else {
+        // Disable the dropdown and show placeholder
+        subtopicSelect.disabled = true;
+        subtopicSelect.innerHTML = '<option value="">Select a program area first</option>';
     }
 });
 
@@ -258,4 +284,5 @@ document.getElementById('date_range').addEventListener('change', function() {
     }
 });
 </script>
+<script src="{{ url_for('static', filename='reading-list.js') }}"></script>
 {% endblock %}

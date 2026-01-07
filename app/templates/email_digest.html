@@ -98,7 +98,7 @@
                                         {% endif %}
                                         {% if pub.is_ahead_of_print %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #fef3c7; color: #92400e; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
-                                            Ahead of Print
+                                            Ahead of Print (abstract only)
                                         </span>
                                         {% elif pub.is_resurfaced %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #c6f6d5; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
@@ -116,16 +116,16 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 6px;">
-                                        <!-- Program Area Tags -->
-                                        {% for area in pub.program_areas %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
-                                            {{ area }}
+                                        <!-- Subtopic Tags FIRST (primary - teal) - limit to 2 for scannability -->
+                                        {% for subtopic in pub.subtopics[:2] %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #e6fffa; color: #0d9488; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ subtopic }}
                                         </span>
                                         {% endfor %}
-                                        <!-- Subtopic Tags -->
-                                        {% for subtopic in pub.subtopics %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ subtopic }}
+                                        <!-- Program Area Tags SECOND (muted gray) -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
                                         </span>
                                         {% endfor %}
                                     </td>
@@ -191,7 +191,7 @@
                                         {% endif %}
                                         {% if pub.is_ahead_of_print %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #fef3c7; color: #92400e; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
-                                            Ahead of Print
+                                            Ahead of Print (abstract only)
                                         </span>
                                         {% elif pub.is_resurfaced %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #c6f6d5; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
@@ -209,16 +209,16 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 6px;">
-                                        <!-- Program Area Tags (health topics) -->
-                                        {% for area in pub.program_areas %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
-                                            {{ area }}
+                                        <!-- Subtopic Tags FIRST (primary - teal) - limit to 2 -->
+                                        {% for subtopic in pub.subtopics[:2] %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #e6fffa; color: #0d9488; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ subtopic }}
                                         </span>
                                         {% endfor %}
-                                        <!-- Subtopic Tags -->
-                                        {% for subtopic in pub.subtopics %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ subtopic }}
+                                        <!-- Program Area Tags SECOND (muted gray) -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
                                         </span>
                                         {% endfor %}
                                     </td>
@@ -304,7 +304,7 @@
                                         {% endif %}
                                         {% if pub.is_ahead_of_print %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #fef3c7; color: #92400e; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
-                                            Ahead of Print
+                                            Ahead of Print (abstract only)
                                         </span>
                                         {% elif pub.is_resurfaced %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #c6f6d5; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
@@ -322,14 +322,16 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 6px;">
-                                        {% for area in pub.program_areas %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
-                                            {{ area }}
+                                        <!-- Subtopic Tags FIRST (primary - teal) - limit to 2 -->
+                                        {% for subtopic in pub.subtopics[:2] %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #e6fffa; color: #0d9488; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ subtopic }}
                                         </span>
                                         {% endfor %}
-                                        {% for subtopic in pub.subtopics %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ subtopic }}
+                                        <!-- Program Area Tags SECOND (muted gray) -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
                                         </span>
                                         {% endfor %}
                                     </td>
@@ -394,7 +396,7 @@
                                         {% endif %}
                                         {% if pub.is_ahead_of_print %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #fef3c7; color: #92400e; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
-                                            Ahead of Print
+                                            Ahead of Print (abstract only)
                                         </span>
                                         {% elif pub.is_resurfaced %}
                                         <span style="display: inline-block; padding: 2px 6px; background-color: #c6f6d5; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-left: 6px;">
@@ -412,14 +414,16 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 6px;">
-                                        {% for area in pub.program_areas %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #ebf8ff; color: #2b6cb0; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
-                                            {{ area }}
+                                        <!-- Subtopic Tags FIRST (primary - teal) - limit to 2 -->
+                                        {% for subtopic in pub.subtopics[:2] %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #e6fffa; color: #0d9488; font-size: 10px; font-weight: 600; border-radius: 3px; margin-right: 4px;">
+                                            {{ subtopic }}
                                         </span>
                                         {% endfor %}
-                                        {% for subtopic in pub.subtopics %}
-                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f0fff4; color: #276749; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
-                                            {{ subtopic }}
+                                        <!-- Program Area Tags SECOND (muted gray) -->
+                                        {% for area in pub.program_areas %}
+                                        <span style="display: inline-block; padding: 2px 6px; background-color: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 500; border-radius: 3px; margin-right: 4px;">
+                                            {{ area }}
                                         </span>
                                         {% endfor %}
                                     </td>

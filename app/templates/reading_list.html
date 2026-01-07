@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}My Reading List - Global Health Publications Tracker{% endblock %}
+
+{% block content %}
+<div class="reading-list-page">
+    <div class="reading-list-header">
+        <h1>My Reading List</h1>
+        <button class="btn btn-primary" onclick="showCreateFolderModal()">+ New Folder</button>
+    </div>
+
+    <div class="reading-list-layout">
+        <!-- Sidebar with folders -->
+        <aside class="folders-sidebar">
+            <nav class="folder-nav">
+                <a href="{{ url_for('main.reading_list', folder='all', read=current_read_filter, sort=current_sort) }}"
+                   class="folder-item {% if current_folder == 'all' %}active{% endif %}">
+                    <span class="folder-icon">&#128218;</span>
+                    <span class="folder-name">All Saved</span>
+                    <span class="folder-count">{{ total_saved }}</span>
+                </a>
+                <a href="{{ url_for('main.reading_list', folder='unfiled', read=current_read_filter, sort=current_sort) }}"
+                   class="folder-item {% if current_folder == 'unfiled' %}active{% endif %}">
+                    <span class="folder-icon">&#128196;</span>
+                    <span class="folder-name">Unfiled</span>
+                    <span class="folder-count">{{ unfiled_count }}</span>
+                </a>
+
+                {% if folders %}
+                <div class="folder-divider"></div>
+                {% for folder in folders %}
+                <div class="folder-item-wrapper">
+                    <a href="{{ url_for('main.reading_list', folder=folder.id, read=current_read_filter, sort=current_sort) }}"
+                       class="folder-item {% if current_folder == folder.id|string %}active{% endif %}">
+                        <span class="folder-icon">&#128193;</span>
+                        <span class="folder-name">{{ folder.name }}</span>
+                        <span class="folder-count">{{ folder.count }}</span>
+                    </a>
+                    <button class="folder-edit-btn" onclick="showEditFolderModal({{ folder.id }}, '{{ folder.name|e }}', '{{ folder.description|default('', true)|e }}')" title="Edit folder">
+                        &#9998;
+                    </button>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <div class="folder-divider"></div>
+                <button class="folder-item add-folder-btn" onclick="showCreateFolderModal()">
+                    <span class="folder-icon">+</span>
+                    <span class="folder-name">New Folder</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main content area -->
+        <main class="reading-list-main">
+            <!-- Filters bar -->
+            <div class="reading-list-filters">
+                <div class="filter-group-inline">
+                    <label>Filter:</label>
+                    <a href="{{ url_for('main.reading_list', folder=current_folder, read='all', sort=current_sort) }}"
+                       class="filter-pill {% if current_read_filter == 'all' %}active{% endif %}">All</a>
+                    <a href="{{ url_for('main.reading_list', folder=current_folder, read='unread', sort=current_sort) }}"
+                       class="filter-pill {% if current_read_filter == 'unread' %}active{% endif %}">Unread ({{ unread_count }})</a>
+                    <a href="{{ url_for('main.reading_list', folder=current_folder, read='read', sort=current_sort) }}"
+                       class="filter-pill {% if current_read_filter == 'read' %}active{% endif %}">Read</a>
+                </div>
+                <div class="sort-group">
+                    <label for="sort-select">Sort:</label>
+                    <select id="sort-select" onchange="changeSortOrder(this.value)">
+                        <option value="saved_at" {% if current_sort == 'saved_at' %}selected{% endif %}>Date Saved</option>
+                        <option value="publication_date" {% if current_sort == 'publication_date' %}selected{% endif %}>Publication Date</option>
+                        <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Title (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Publications list -->
+            {% if saved_publications %}
+            <div class="saved-publications-list">
+                {% for item in saved_publications %}
+                <div class="saved-publication-card {% if item.saved.is_read %}is-read{% endif %}" data-publication-id="{{ item.publication.id }}">
+                    <div class="saved-pub-header">
+                        <div class="saved-pub-meta">
+                            <span class="pub-source source-{{ item.publication.source|lower }}">{{ item.publication.source }}</span>
+                            {% if item.publication.publication_date %}
+                            <span class="pub-date">{{ item.publication.publication_date.strftime('%b %d, %Y') }}</span>
+                            {% endif %}
+                            {% if item.publication.is_ahead_of_print %}
+                            <span class="ahead-of-print-badge">
+                                Ahead of Print <span class="info-icon">&#9432;</span>
+                                <span class="tooltip">
+                                    <span class="tooltip-title">What is Ahead of Print?</span>
+                                    <span class="tooltip-text">This publication has been accepted by a journal but is not yet in its final published form. Typically, only the abstract is available. The full text will be accessible once officially published.</span>
+                                </span>
+                            </span>
+                            {% endif %}
+                            <span class="read-status {% if item.saved.is_read %}read{% else %}unread{% endif %}">
+                                {% if item.saved.is_read %}&#10003; Read{% else %}&#9675; Unread{% endif %}
+                            </span>
+                        </div>
+                        <div class="saved-pub-actions-top">
+                            <button class="btn-icon" onclick="toggleReadStatus({{ item.publication.id }}, {{ 'false' if item.saved.is_read else 'true' }})" title="{% if item.saved.is_read %}Mark as unread{% else %}Mark as read{% endif %}">
+                                {% if item.saved.is_read %}&#9675;{% else %}&#10003;{% endif %}
+                            </button>
+                        </div>
+                    </div>
+
+                    <h3 class="saved-pub-title">
+                        <a href="{{ item.publication.url }}" target="_blank" rel="noopener noreferrer">{{ item.publication.title }}</a>
+                    </h3>
+
+                    <div class="saved-pub-tags">
+                        {% for subtopic in item.subtopics[:2] %}
+                        <span class="tag tag-subtopic">{{ subtopic }}</span>
+                        {% endfor %}
+                        {% for area in item.program_areas[:2] %}
+                        <span class="tag tag-program-muted">{{ area }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="saved-pub-info">
+                        <span class="folder-badge">
+                            &#128193; {{ item.folder_name or 'Unfiled' }}
+                        </span>
+                        <span class="saved-date">
+                            Saved {{ item.saved.saved_at.strftime('%b %d, %Y') }}
+                        </span>
+                    </div>
+
+                    {% if item.saved.notes %}
+                    <div class="saved-pub-notes">
+                        <span class="notes-label">Note:</span>
+                        <span class="notes-text">{{ item.saved.notes }}</span>
+                        <button class="btn-link" onclick="showEditNotesModal({{ item.publication.id }}, '{{ item.saved.notes|e }}')">Edit</button>
+                    </div>
+                    {% endif %}
+
+                    <div class="saved-pub-actions">
+                        {% if not item.saved.notes %}
+                        <button class="btn btn-small btn-outline" onclick="showEditNotesModal({{ item.publication.id }}, '')">Add Note</button>
+                        {% endif %}
+                        <button class="btn btn-small btn-outline" onclick="showMoveModal({{ item.publication.id }}, {{ item.saved.folder_id or 'null' }})">Move to...</button>
+                        <button class="btn btn-small btn-outline btn-danger" onclick="removeFromReadingList({{ item.publication.id }})">Remove</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                {% if current_folder == 'all' and total_saved == 0 %}
+                <p class="empty-title">Your reading list is empty</p>
+                <p class="empty-hint">Browse publications and click the bookmark icon to save items for later.</p>
+                <a href="{{ url_for('main.browse') }}" class="btn btn-primary">Browse Publications</a>
+                {% elif current_folder != 'all' %}
+                <p class="empty-title">No publications in this folder</p>
+                <p class="empty-hint">Move publications here from the browse page or your reading list.</p>
+                {% else %}
+                <p class="empty-title">No publications match your filter</p>
+                <p class="empty-hint">Try changing the filter options above.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </main>
+    </div>
+</div>
+
+<!-- Edit Folder Modal -->
+<div id="edit-folder-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Folder</h2>
+            <button class="modal-close" onclick="hideModal('edit-folder-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="edit-folder-id">
+            <div class="form-group">
+                <label for="edit-folder-name">Folder Name</label>
+                <input type="text" id="edit-folder-name" maxlength="255">
+            </div>
+            <div class="form-group">
+                <label for="edit-folder-description">Description (optional)</label>
+                <textarea id="edit-folder-description"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" onclick="deleteFolder()">Delete Folder</button>
+            <button class="btn btn-secondary" onclick="hideModal('edit-folder-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="updateFolder()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Move to Folder Modal -->
+<div id="move-folder-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Move to Folder</h2>
+            <button class="modal-close" onclick="hideModal('move-folder-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="move-publication-id">
+            <div class="folder-select-list">
+                <label class="folder-option">
+                    <input type="radio" name="move-folder" value="null">
+                    <span>&#128196; Unfiled</span>
+                </label>
+                {% for folder in folders %}
+                <label class="folder-option">
+                    <input type="radio" name="move-folder" value="{{ folder.id }}">
+                    <span>&#128193; {{ folder.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideModal('move-folder-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="moveToFolder()">Move</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Notes Modal -->
+<div id="edit-notes-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Note</h2>
+            <button class="modal-close" onclick="hideModal('edit-notes-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="notes-publication-id">
+            <div class="form-group">
+                <label for="publication-notes">Your Note</label>
+                <textarea id="publication-notes" rows="4" placeholder="Add your notes about this publication..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideModal('edit-notes-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNotes()">Save Note</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='reading-list.js') }}"></script>
+<script>
+// Current filter state for URL building
+const currentFolder = '{{ current_folder }}';
+const currentReadFilter = '{{ current_read_filter }}';
+const currentSort = '{{ current_sort }}';
+
+function changeSortOrder(newSort) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sort', newSort);
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

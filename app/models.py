@@ -13,6 +13,8 @@ This file defines all database tables:
 - DigestLog: Tracks which publications were sent to which users
 - ScraperLog: Tracks scraper runs for monitoring
 - UserSuggestion: User feedback and suggestions
+- ReadingFolder: User-created folders to organize saved publications
+- SavedPublication: Publications saved to user's reading list
 """
 
 from datetime import datetime
@@ -85,6 +87,18 @@ class User(UserMixin, db.Model):
     )
     suggestions = db.relationship(
         'UserSuggestion',
+        backref='user',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+    reading_folders = db.relationship(
+        'ReadingFolder',
+        backref='user',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+    saved_publications = db.relationship(
+        'SavedPublication',
         backref='user',
         lazy='dynamic',
         cascade='all, delete-orphan'
@@ -518,3 +532,85 @@ class UserSuggestion(db.Model):
 
     def __repr__(self):
         return f'<UserSuggestion {self.user_id}:{self.suggestion_type}>'
+
+
+class ReadingFolder(db.Model):
+    """
+    A folder to organize saved publications.
+
+    Users can create custom folders/projects to organize their saved
+    publications (e.g., "Kenya PrEP Research", "Q1 Grant Proposal").
+    """
+    __tablename__ = 'reading_folders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship to saved publications in this folder
+    saved_publications = db.relationship(
+        'SavedPublication',
+        backref='folder',
+        lazy='dynamic'
+    )
+
+    # Ensure folder names are unique per user
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='unique_user_folder_name'),
+    )
+
+    def __repr__(self):
+        return f'<ReadingFolder {self.user_id}:{self.name}>'
+
+
+class SavedPublication(db.Model):
+    """
+    A publication saved to a user's reading list.
+
+    Users can save publications for later reading, optionally organizing
+    them into folders. Includes notes and read/unread status.
+    """
+    __tablename__ = 'saved_publications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    publication_id = db.Column(
+        db.Integer,
+        db.ForeignKey('publications.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    folder_id = db.Column(
+        db.Integer,
+        db.ForeignKey('reading_folders.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True
+    )  # NULL = "Unfiled"
+    saved_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text, nullable=True)
+    is_read = db.Column(db.Boolean, default=False)
+
+    # Relationship to publication
+    publication = db.relationship('Publication', backref='saved_by_users')
+
+    # Ensure a user can only save each publication once
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'publication_id', name='unique_user_publication'),
+        db.Index('idx_user_folder', 'user_id', 'folder_id'),
+    )
+
+    def __repr__(self):
+        return f'<SavedPublication {self.user_id}:{self.publication_id}>'

@@ -20,12 +20,16 @@ from sqlalchemy import or_, and_, func
 from .models import (
     db, User, UserProgramPreference, UserProgramPreferenceLocation, UserCountryWatch,
     Publication, PublicationProgramArea, PublicationSubtopic, PublicationRegion,
-    DigestLog, ScraperLog, UserSuggestion
+    DigestLog, ScraperLog, UserSuggestion, ReadingFolder, SavedPublication
 )
 from .config import (
     PROGRAM_AREAS, get_all_program_area_choices, get_all_program_areas_with_subtopics,
+    get_program_subtopics_for_dropdown,
     REGIONS_AND_COUNTRIES, get_all_region_choices, get_all_country_choices,
     get_program_area_name, get_region_name, get_subtopic_name
+)
+from .services.publication_queries import (
+    get_matching_publications, get_publication_counts_by_program, get_user_preference_structure
 )
 
 
@@ -74,24 +78,33 @@ def home():
     """
     Home dashboard page for logged-in users.
 
-    Shows subscription summary, new publications count, and database stats.
+    Shows subscription summary, new publications count, database stats,
+    recent matching publications, and topics at a glance.
     """
     # Get user's subscription counts
     program_subscription_count = current_user.program_preferences.count()
     country_watch_count = current_user.country_watches.count()
 
-    # Count new publications since last digest
+    # Get user's preference structure (for checking if they have subscriptions)
+    prefs_by_program = get_user_preference_structure(current_user)
+    user_program_keys = list(prefs_by_program.keys())
+
+    # Count new publications since last digest (using correct subtopic-aware filtering)
     new_publications_count = 0
-    if current_user.last_digest_sent:
-        # Get publications matching user's subscriptions since last digest
-        user_program_keys = current_user.get_selected_program_keys()
-        if user_program_keys:
-            new_publications_count = Publication.query.join(
-                PublicationProgramArea
-            ).filter(
-                PublicationProgramArea.program_area_key.in_(user_program_keys),
-                Publication.scraped_at > current_user.last_digest_sent
-            ).distinct().count()
+    if current_user.last_digest_sent and prefs_by_program:
+        # Use the shared helper to get accurate count
+        days_since_digest = (datetime.utcnow() - current_user.last_digest_sent).days
+        matching_pubs = get_matching_publications(
+            current_user,
+            days_back=max(days_since_digest, 1),
+            max_publications=100,  # Just for counting
+            exclude_sent=False
+        )
+        # Filter to only those scraped after last digest
+        new_publications_count = sum(
+            1 for p in matching_pubs
+            if p['publication'].scraped_at > current_user.last_digest_sent
+        )
 
     # Get database stats
     total_publications = Publication.query.count()
@@ -119,6 +132,61 @@ def home():
     # Calculate next digest info
     next_digest_info = _calculate_next_digest_info(current_user)
 
+    # === Get recent publications matching user's topics (last 7 days) ===
+    # Uses CORRECT subtopic-aware filtering via shared helper
+    recent_matching_publications = []
+    recent_matching_count = 0
+
+    if prefs_by_program:
+        # Get all matching publications from last 7 days (for count)
+        all_matching = get_matching_publications(
+            current_user,
+            days_back=7,
+            max_publications=100,
+            exclude_sent=False
+        )
+        recent_matching_count = len(all_matching)
+
+        # Get top 6 for display
+        matching_pubs = get_matching_publications(
+            current_user,
+            days_back=7,
+            max_publications=6,
+            exclude_sent=False
+        )
+
+        # Format for template - include subtopics
+        for pub_data in matching_pubs:
+            primary_program = pub_data['program_areas'][0] if pub_data['program_areas'] else None
+            recent_matching_publications.append({
+                'publication': pub_data['publication'],
+                'primary_program_key': primary_program['key'] if primary_program else None,
+                'primary_program_name': primary_program['name'] if primary_program else None,
+                'subtopics': pub_data.get('subtopics', []),  # Include subtopics
+                'program_areas': pub_data.get('program_areas', [])  # Include all program areas
+            })
+
+    # === Get publication counts by subscribed program area ===
+    program_counts = get_publication_counts_by_program(current_user)
+
+    # === Get user's subscribed regions/countries ===
+    user_country_watches = []
+    for watch in current_user.country_watches:
+        if watch.country_name:
+            user_country_watches.append(watch.country_name)
+        elif watch.region_key:
+            user_country_watches.append(get_region_name(watch.region_key))
+
+    # === Get reading list stats ===
+    reading_list_total = current_user.saved_publications.count()
+    reading_list_unread = current_user.saved_publications.filter_by(is_read=False).count()
+    reading_list_folders = []
+    for folder in current_user.reading_folders.order_by(ReadingFolder.name).limit(3):
+        reading_list_folders.append({
+            'name': folder.name,
+            'count': folder.saved_publications.count()
+        })
+
     return render_template(
         'home.html',
         program_subscription_count=program_subscription_count,
@@ -129,7 +197,15 @@ def home():
         pubmed_count=pubmed_count,
         date_range=date_range,
         last_scraper_run=last_scraper_run,
-        next_digest_info=next_digest_info
+        next_digest_info=next_digest_info,
+        recent_matching_publications=recent_matching_publications,
+        recent_matching_count=recent_matching_count,
+        program_counts=program_counts,
+        user_program_keys=user_program_keys,
+        user_country_watches=user_country_watches,
+        reading_list_total=reading_list_total,
+        reading_list_unread=reading_list_unread,
+        reading_list_folders=reading_list_folders
     )
 
 
@@ -375,6 +451,7 @@ def browse():
     # Get filter options
     program_choices = get_all_program_area_choices()
     program_areas_with_subtopics = get_all_program_areas_with_subtopics()
+    program_subtopics_dropdown = get_program_subtopics_for_dropdown()
     region_choices = get_all_region_choices()
     country_choices = get_all_country_choices()
     countries_by_region = get_countries_by_region()
@@ -397,6 +474,7 @@ def browse():
         # Filter options
         program_choices=program_choices,
         program_areas_with_subtopics=program_areas_with_subtopics,
+        program_subtopics_dropdown=program_subtopics_dropdown,
         region_choices=region_choices,
         country_choices=country_choices,
         countries_by_region=countries_by_region,
@@ -522,6 +600,20 @@ def login():
             return render_template('login.html', email=email)
 
     return render_template('login.html')
+
+
+@main_bp.route('/send-test-digest')
+@login_required
+def send_test_digest():
+    """
+    Send a test digest to the current user.
+
+    This is a placeholder that will be implemented later.
+    For now, it just shows a flash message.
+    """
+    # TODO: Implement actual test digest sending
+    flash('Test digest feature coming soon! We will send a sample digest to your email.', 'info')
+    return redirect(url_for('main.home'))
 
 
 @main_bp.route('/suggestions', methods=['GET', 'POST'])
@@ -828,3 +920,362 @@ def generate_unsubscribe_token(user):
     """
     import base64
     return base64.urlsafe_b64encode(str(user.id).encode()).decode()
+
+
+# ============================================================================
+# READING LIST FEATURE
+# ============================================================================
+
+@main_bp.route('/reading-list')
+@login_required
+def reading_list():
+    """
+    Reading list page where users can view and manage saved publications.
+
+    Shows folders in sidebar and publications in main area with filtering
+    and sorting options.
+    """
+    # Get current folder filter from query params
+    folder_filter = request.args.get('folder', 'all')  # 'all', 'unfiled', or folder_id
+    read_filter = request.args.get('read', 'all')  # 'all', 'read', 'unread'
+    sort_by = request.args.get('sort', 'saved_at')  # 'saved_at', 'publication_date', 'title'
+
+    # Get user's folders with counts
+    folders = []
+    for folder in current_user.reading_folders.order_by(ReadingFolder.name):
+        folders.append({
+            'id': folder.id,
+            'name': folder.name,
+            'description': folder.description,
+            'count': folder.saved_publications.count()
+        })
+
+    # Get total and unfiled counts
+    total_saved = current_user.saved_publications.count()
+    unfiled_count = current_user.saved_publications.filter_by(folder_id=None).count()
+    unread_count = current_user.saved_publications.filter_by(is_read=False).count()
+
+    # Build query for publications
+    query = current_user.saved_publications
+
+    # Apply folder filter
+    if folder_filter == 'unfiled':
+        query = query.filter_by(folder_id=None)
+    elif folder_filter != 'all':
+        try:
+            folder_id = int(folder_filter)
+            query = query.filter_by(folder_id=folder_id)
+        except ValueError:
+            pass
+
+    # Apply read filter
+    if read_filter == 'read':
+        query = query.filter_by(is_read=True)
+    elif read_filter == 'unread':
+        query = query.filter_by(is_read=False)
+
+    # Apply sorting
+    if sort_by == 'publication_date':
+        query = query.join(Publication).order_by(Publication.publication_date.desc())
+    elif sort_by == 'title':
+        query = query.join(Publication).order_by(Publication.title.asc())
+    else:  # saved_at (default)
+        query = query.order_by(SavedPublication.saved_at.desc())
+
+    # Get saved publications with related data
+    saved_pubs = []
+    for saved in query.all():
+        pub = saved.publication
+
+        # Get program areas and subtopics for tags
+        areas = PublicationProgramArea.query.filter_by(publication_id=pub.id).all()
+        program_areas = [get_program_area_name(a.program_area_key) for a in areas]
+
+        subtopics_db = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
+        subtopics = [get_subtopic_name(st.program_area_key, st.subtopic_key) for st in subtopics_db]
+
+        saved_pubs.append({
+            'saved': saved,
+            'publication': pub,
+            'folder_name': saved.folder.name if saved.folder else None,
+            'program_areas': program_areas,
+            'subtopics': subtopics
+        })
+
+    return render_template(
+        'reading_list.html',
+        folders=folders,
+        saved_publications=saved_pubs,
+        total_saved=total_saved,
+        unfiled_count=unfiled_count,
+        unread_count=unread_count,
+        current_folder=folder_filter,
+        current_read_filter=read_filter,
+        current_sort=sort_by
+    )
+
+
+# ============================================================================
+# READING LIST API ENDPOINTS
+# ============================================================================
+
+@main_bp.route('/api/saved-publications', methods=['POST'])
+@login_required
+def api_save_publication():
+    """Save a publication to the user's reading list."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    publication_id = data.get('publication_id')
+    folder_id = data.get('folder_id')  # Can be None for "unfiled"
+
+    if not publication_id:
+        return jsonify({'success': False, 'error': 'publication_id is required'}), 400
+
+    # Check if publication exists
+    publication = Publication.query.get(publication_id)
+    if not publication:
+        return jsonify({'success': False, 'error': 'Publication not found'}), 404
+
+    # Check if already saved
+    existing = SavedPublication.query.filter_by(
+        user_id=current_user.id,
+        publication_id=publication_id
+    ).first()
+
+    if existing:
+        return jsonify({'success': False, 'error': 'Publication already saved'}), 409
+
+    # Validate folder if provided
+    if folder_id:
+        folder = ReadingFolder.query.filter_by(id=folder_id, user_id=current_user.id).first()
+        if not folder:
+            return jsonify({'success': False, 'error': 'Folder not found'}), 404
+
+    # Create saved publication
+    saved = SavedPublication(
+        user_id=current_user.id,
+        publication_id=publication_id,
+        folder_id=folder_id
+    )
+    db.session.add(saved)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'saved_id': saved.id,
+        'folder_id': folder_id
+    })
+
+
+@main_bp.route('/api/saved-publications/<int:publication_id>', methods=['DELETE'])
+@login_required
+def api_remove_publication(publication_id):
+    """Remove a publication from the user's reading list."""
+    saved = SavedPublication.query.filter_by(
+        user_id=current_user.id,
+        publication_id=publication_id
+    ).first()
+
+    if not saved:
+        return jsonify({'success': False, 'error': 'Publication not in reading list'}), 404
+
+    db.session.delete(saved)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@main_bp.route('/api/saved-publications/<int:publication_id>', methods=['PUT'])
+@login_required
+def api_update_saved_publication(publication_id):
+    """Update a saved publication (folder, notes, read status)."""
+    saved = SavedPublication.query.filter_by(
+        user_id=current_user.id,
+        publication_id=publication_id
+    ).first()
+
+    if not saved:
+        return jsonify({'success': False, 'error': 'Publication not in reading list'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    # Update folder if provided
+    if 'folder_id' in data:
+        folder_id = data['folder_id']
+        if folder_id is not None:
+            folder = ReadingFolder.query.filter_by(id=folder_id, user_id=current_user.id).first()
+            if not folder:
+                return jsonify({'success': False, 'error': 'Folder not found'}), 404
+        saved.folder_id = folder_id
+
+    # Update notes if provided
+    if 'notes' in data:
+        saved.notes = data['notes']
+
+    # Update read status if provided
+    if 'is_read' in data:
+        saved.is_read = bool(data['is_read'])
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'folder_id': saved.folder_id,
+        'notes': saved.notes,
+        'is_read': saved.is_read
+    })
+
+
+@main_bp.route('/api/reading-folders', methods=['GET'])
+@login_required
+def api_get_folders():
+    """Get all folders for the current user with publication counts."""
+    folders = []
+    for folder in current_user.reading_folders.order_by(ReadingFolder.name):
+        folders.append({
+            'id': folder.id,
+            'name': folder.name,
+            'description': folder.description,
+            'count': folder.saved_publications.count()
+        })
+
+    return jsonify({
+        'success': True,
+        'folders': folders,
+        'unfiled_count': current_user.saved_publications.filter_by(folder_id=None).count()
+    })
+
+
+@main_bp.route('/api/reading-folders', methods=['POST'])
+@login_required
+def api_create_folder():
+    """Create a new reading folder."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    name = data.get('name', '').strip()
+    description = data.get('description', '').strip() or None
+
+    if not name:
+        return jsonify({'success': False, 'error': 'Folder name is required'}), 400
+
+    if len(name) > 255:
+        return jsonify({'success': False, 'error': 'Folder name too long (max 255 characters)'}), 400
+
+    # Check for duplicate name
+    existing = ReadingFolder.query.filter_by(user_id=current_user.id, name=name).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'A folder with this name already exists'}), 409
+
+    folder = ReadingFolder(
+        user_id=current_user.id,
+        name=name,
+        description=description
+    )
+    db.session.add(folder)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'folder': {
+            'id': folder.id,
+            'name': folder.name,
+            'description': folder.description,
+            'count': 0
+        }
+    })
+
+
+@main_bp.route('/api/reading-folders/<int:folder_id>', methods=['PUT'])
+@login_required
+def api_update_folder(folder_id):
+    """Update a reading folder (rename or change description)."""
+    folder = ReadingFolder.query.filter_by(id=folder_id, user_id=current_user.id).first()
+
+    if not folder:
+        return jsonify({'success': False, 'error': 'Folder not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    if 'name' in data:
+        name = data['name'].strip()
+        if not name:
+            return jsonify({'success': False, 'error': 'Folder name is required'}), 400
+        if len(name) > 255:
+            return jsonify({'success': False, 'error': 'Folder name too long'}), 400
+
+        # Check for duplicate name (excluding current folder)
+        existing = ReadingFolder.query.filter(
+            ReadingFolder.user_id == current_user.id,
+            ReadingFolder.name == name,
+            ReadingFolder.id != folder_id
+        ).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'A folder with this name already exists'}), 409
+
+        folder.name = name
+
+    if 'description' in data:
+        folder.description = data['description'].strip() or None
+
+    folder.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'folder': {
+            'id': folder.id,
+            'name': folder.name,
+            'description': folder.description
+        }
+    })
+
+
+@main_bp.route('/api/reading-folders/<int:folder_id>', methods=['DELETE'])
+@login_required
+def api_delete_folder(folder_id):
+    """Delete a folder and move its publications to unfiled."""
+    folder = ReadingFolder.query.filter_by(id=folder_id, user_id=current_user.id).first()
+
+    if not folder:
+        return jsonify({'success': False, 'error': 'Folder not found'}), 404
+
+    # Move all publications in this folder to unfiled (set folder_id to NULL)
+    SavedPublication.query.filter_by(folder_id=folder_id).update({'folder_id': None})
+
+    # Delete the folder
+    db.session.delete(folder)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@main_bp.route('/api/publication-saved-status')
+@login_required
+def api_publication_saved_status():
+    """Check if publications are saved (for displaying bookmark status on cards)."""
+    publication_ids = request.args.getlist('ids', type=int)
+
+    if not publication_ids:
+        return jsonify({'success': True, 'saved': {}})
+
+    saved_pubs = SavedPublication.query.filter(
+        SavedPublication.user_id == current_user.id,
+        SavedPublication.publication_id.in_(publication_ids)
+    ).all()
+
+    saved_map = {}
+    for saved in saved_pubs:
+        saved_map[saved.publication_id] = {
+            'folder_id': saved.folder_id,
+            'folder_name': saved.folder.name if saved.folder else None
+        }
+
+    return jsonify({'success': True, 'saved': saved_map})
