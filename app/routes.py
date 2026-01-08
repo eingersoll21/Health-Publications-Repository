@@ -13,7 +13,7 @@ This file defines all the website pages and handles user actions:
 import re
 import secrets
 from datetime import datetime, timedelta, time
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import or_, and_, func
 
@@ -437,22 +437,22 @@ def browse():
     formatted_pubs = []
     for pub in publications:
         # Get program areas
-        areas = PublicationProgramArea.query.filter_by(publication_id=pub.id).all()
-        program_areas = [get_program_area_name(a.program_area_key) for a in areas]
+        pub_areas = PublicationProgramArea.query.filter_by(publication_id=pub.id).all()
+        pub_program_areas = [get_program_area_name(a.program_area_key) for a in pub_areas]
 
         # Get subtopics
-        subtopics = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
-        subtopic_names = [get_subtopic_name(st.program_area_key, st.subtopic_key) for st in subtopics]
+        pub_subtopics = PublicationSubtopic.query.filter_by(publication_id=pub.id).all()
+        pub_subtopic_names = [get_subtopic_name(st.program_area_key, st.subtopic_key) for st in pub_subtopics]
 
         # Get regions and countries
-        regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
-        region_names = [get_region_name(r.region_key) for r in regions]
+        pub_regions = PublicationRegion.query.filter_by(publication_id=pub.id).all()
+        pub_region_names = [get_region_name(r.region_key) for r in pub_regions]
         # Extract countries from matched_terms
-        countries = []
-        for r in regions:
+        pub_countries = []
+        for r in pub_regions:
             if r.matched_terms:
-                countries.extend([c.strip() for c in r.matched_terms.split(',') if c.strip()])
-        countries = list(set(countries))  # Remove duplicates
+                pub_countries.extend([c.strip() for c in r.matched_terms.split(',') if c.strip()])
+        pub_countries = list(set(pub_countries))  # Remove duplicates
 
         # Truncate abstract
         abstract_preview = pub.abstract[:200] + '...' if pub.abstract and len(pub.abstract) > 200 else pub.abstract
@@ -464,10 +464,10 @@ def browse():
             'source': pub.source,
             'date': pub.publication_date,
             'abstract': abstract_preview,
-            'program_areas': program_areas,
-            'subtopics': subtopic_names,
-            'regions': region_names,
-            'countries': countries,
+            'program_areas': pub_program_areas,
+            'subtopics': pub_subtopic_names,
+            'regions': pub_region_names,
+            'countries': pub_countries,
             'is_ahead_of_print': pub.is_ahead_of_print
         })
 
@@ -592,8 +592,21 @@ def register():
             import logging
             logging.getLogger(__name__).error(f"Failed to send welcome email: {e}")
 
+        # Send admin notification (don't block registration if email fails)
+        try:
+            from app.services.email_service import send_new_user_notification
+            send_new_user_notification(user)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send new user notification: {e}")
+
         # Log them in
         login_user(user)
+
+        # Set session flag to show welcome banner with spam folder info
+        session['show_welcome_banner'] = True
+        session['welcome_email'] = user.email
+
         flash('Account created successfully! Please set up your subscriptions.', 'success')
         return redirect(url_for('main.preferences'))
 
@@ -667,6 +680,15 @@ def send_test_digest():
     return redirect(url_for('main.home'))
 
 
+@main_bp.route('/dismiss-welcome-banner', methods=['POST'])
+@login_required
+def dismiss_welcome_banner():
+    """Dismiss the welcome banner by clearing session flags."""
+    session.pop('show_welcome_banner', None)
+    session.pop('welcome_email', None)
+    return jsonify({'success': True})
+
+
 @main_bp.route('/suggestions', methods=['GET', 'POST'])
 @login_required
 def suggestions():
@@ -709,6 +731,15 @@ def suggestions():
             )
             db.session.add(suggestion)
             db.session.commit()
+
+            # Send admin notification (don't block user if email fails)
+            try:
+                from app.services.email_service import send_suggestion_notification
+                send_suggestion_notification(current_user, suggestion_type, description)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to send suggestion notification: {e}")
+
             flash('Thank you for your feedback! We appreciate your input.', 'success')
             return redirect(url_for('main.suggestions'))
 

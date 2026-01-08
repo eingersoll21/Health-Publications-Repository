@@ -38,6 +38,26 @@
                 {% endif %}
             {% endwith %}
 
+            {% if session.get('show_welcome_banner') %}
+            <div class="welcome-banner" id="welcome-banner">
+                <div class="welcome-banner-content">
+                    <div class="welcome-banner-icon">&#9993;</div>
+                    <div class="welcome-banner-text">
+                        <strong>Welcome!</strong> We've sent a confirmation email to <strong>{{ session.get('welcome_email', 'your email') }}</strong>.
+                        If you don't see it, please check your spam folder and mark emails from
+                        <strong>health.pubs.digest@gmail.com</strong> as safe to ensure you receive your digests.
+                    </div>
+                    <button class="welcome-banner-close" onclick="dismissWelcomeBanner()" title="Dismiss">&times;</button>
+                </div>
+            </div>
+            <script>
+            function dismissWelcomeBanner() {
+                document.getElementById('welcome-banner').style.display = 'none';
+                fetch('/dismiss-welcome-banner', { method: 'POST' });
+            }
+            </script>
+            {% endif %}
+
             {% block content %}{% endblock %}
         </div>
     </main>

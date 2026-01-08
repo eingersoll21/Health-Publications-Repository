@@ -234,3 +234,117 @@ Update Preferences: {preferences_url}
     except Exception as e:
         logger.error(f"Error sending welcome email to {user.email}: {e}")
         return False
+
+
+def send_admin_notification(subject, body_text):
+    """
+    Send a notification email to the admin address.
+
+    Args:
+        subject: Email subject line
+        body_text: Plain text body of the email
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    admin_email = Config.EMAIL_ADDRESS  # Send to the same address that sends emails
+
+    # Create simple HTML version
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            h2 {{ color: #2d5f7a; }}
+            .details {{ background: #f5f5f5; padding: 15px; border-radius: 5px; }}
+            .details p {{ margin: 8px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>{subject}</h2>
+            <div class="details">
+                {body_text.replace(chr(10), '<br>')}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        success = send_email(
+            to_email=admin_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=body_text
+        )
+
+        if success:
+            logger.info(f"Admin notification sent: {subject}")
+        else:
+            logger.error(f"Failed to send admin notification: {subject}")
+
+        return success
+
+    except Exception as e:
+        logger.error(f"Error sending admin notification: {e}")
+        return False
+
+
+def send_new_user_notification(user):
+    """
+    Send notification to admin when a new user registers.
+
+    Args:
+        user: User object with email, first_name, last_name
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    from datetime import datetime
+
+    subject = "New User Registration"
+
+    body_text = f"""A new user has registered on Global Health Research Hub.
+
+Name: {user.first_name} {user.last_name or ''}
+Email: {user.email}
+Registered: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+"""
+
+    return send_admin_notification(subject, body_text)
+
+
+def send_suggestion_notification(user, suggestion_type, description):
+    """
+    Send notification to admin when a user submits a suggestion.
+
+    Args:
+        user: User object who submitted the suggestion
+        suggestion_type: Type of suggestion (e.g., 'feature_request', 'bug_report')
+        description: The suggestion text
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    from datetime import datetime
+
+    # Format suggestion type for display
+    type_display = suggestion_type.replace('_', ' ').title()
+
+    subject = f"New Suggestion: {type_display}"
+
+    body_text = f"""A new suggestion has been submitted on Global Health Research Hub.
+
+User: {user.first_name} {user.last_name or ''}
+Email: {user.email}
+Type: {type_display}
+Submitted: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+Description:
+{description}
+"""
+
+    return send_admin_notification(subject, body_text)

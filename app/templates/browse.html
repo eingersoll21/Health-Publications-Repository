@@ -8,9 +8,9 @@
 
     <!-- Filters Section -->
     <div class="filters-section">
-        <form method="GET" action="{{ url_for('main.browse') }}" id="filter-form">
+        <form method="GET" action="{{ url_for('main.browse') }}" id="filter-form" autocomplete="off">
             <!-- Hidden page input for pagination -->
-            <input type="hidden" name="page" id="page-input" value="1">
+            <input type="hidden" name="page" id="page-input" value="{{ pagination.page if pagination else 1 }}">
             <!-- Row 1: Search, Program Area, Subtopic -->
             <div class="filters-row filters-row-1">
                 <div class="filter-group filter-search">
