@@ -499,7 +499,7 @@ PROGRAM_AREAS = {
             },
             "ai_machine_learning": {
                 "name": "AI & Machine Learning",
-                "keywords": ["artificial intelligence", "AI in health", "AI in healthcare", "machine learning", "deep learning", "neural network", "NLP", "natural language processing", "large language model", "LLM", "generative AI", "predictive model", "predictive analytics", "clinical decision support", "computer vision", "image recognition", "algorithm", "automated diagnosis"]
+                "keywords": ["artificial intelligence", "AI in health", "AI in healthcare", "machine learning", "deep learning", "neural network", "NLP", "natural language processing", "language model", "large language model", "LLM", "generative AI", "predictive model", "predictive analytics", "clinical decision support", "computer vision", "image recognition", "algorithm", "automated diagnosis", "verbal autopsy AI"]
             }
         }
     },
