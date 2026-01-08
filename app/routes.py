@@ -319,11 +319,11 @@ def browse():
     - Date range
     - Text search
     """
-    # Get filter parameters from query string
-    program = request.args.get('program', '')
-    subtopic = request.args.get('subtopic', '')
-    region = request.args.get('region', '')
-    country = request.args.get('country', '')
+    # Get filter parameters from query string (support multiple values)
+    programs = request.args.getlist('program')  # Returns list
+    subtopics = request.args.getlist('subtopic')  # Returns list
+    regions = request.args.getlist('region')  # Returns list
+    countries = request.args.getlist('country')  # Returns list
     source = request.args.get('source', '')
     date_range = request.args.get('date_range', '30')  # Default: last 30 days
     date_from = request.args.get('date_from', '')
@@ -351,32 +351,33 @@ def browse():
             )
         )
 
-    # Apply program area filter
-    if program:
+    # Apply program area filter (supports multiple selections)
+    if programs:
         pub_ids_with_program = db.session.query(PublicationProgramArea.publication_id).filter(
-            PublicationProgramArea.program_area_key == program
+            PublicationProgramArea.program_area_key.in_(programs)
         ).scalar_subquery()
         query = query.filter(Publication.id.in_(pub_ids_with_program))
 
-    # Apply subtopic filter
-    if subtopic and program:
+    # Apply subtopic filter (supports multiple selections)
+    if subtopics:
         pub_ids_with_subtopic = db.session.query(PublicationSubtopic.publication_id).filter(
-            PublicationSubtopic.program_area_key == program,
-            PublicationSubtopic.subtopic_key == subtopic
+            PublicationSubtopic.subtopic_key.in_(subtopics)
         ).scalar_subquery()
         query = query.filter(Publication.id.in_(pub_ids_with_subtopic))
 
-    # Apply region filter
-    if region:
+    # Apply region filter (supports multiple selections)
+    if regions:
         pub_ids_with_region = db.session.query(PublicationRegion.publication_id).filter(
-            PublicationRegion.region_key == region
+            PublicationRegion.region_key.in_(regions)
         ).scalar_subquery()
         query = query.filter(Publication.id.in_(pub_ids_with_region))
 
-    # Apply country filter (search in matched_terms)
-    if country:
+    # Apply country filter (supports multiple selections)
+    if countries:
+        # Build OR conditions for each country
+        country_conditions = [PublicationRegion.matched_terms.ilike(f'%{c}%') for c in countries]
         pub_ids_with_country = db.session.query(PublicationRegion.publication_id).filter(
-            PublicationRegion.matched_terms.ilike(f'%{country}%')
+            or_(*country_conditions)
         ).scalar_subquery()
         query = query.filter(Publication.id.in_(pub_ids_with_country))
 
@@ -481,11 +482,11 @@ def browse():
         publications=formatted_pubs,
         pagination=pagination,
         total_count=total_count,
-        # Current filter values
-        current_program=program,
-        current_subtopic=subtopic,
-        current_region=region,
-        current_country=country,
+        # Current filter values (lists for multi-select)
+        current_programs=programs,
+        current_subtopics=subtopics,
+        current_regions=regions,
+        current_countries=countries,
         current_source=source,
         current_date_range=date_range,
         current_date_from=date_from,

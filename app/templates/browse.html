@@ -9,6 +9,8 @@
     <!-- Filters Section -->
     <div class="filters-section">
         <form method="GET" action="{{ url_for('main.browse') }}" id="filter-form">
+            <!-- Hidden page input for pagination -->
+            <input type="hidden" name="page" id="page-input" value="1">
             <!-- Row 1: Search, Program Area, Subtopic -->
             <div class="filters-row filters-row-1">
                 <div class="filter-group filter-search">
@@ -16,50 +18,79 @@
                     <input type="text" id="search" name="search" value="{{ current_search }}" placeholder="Search titles and abstracts...">
                 </div>
                 <div class="filter-group">
-                    <label for="program">Program Area</label>
-                    <select id="program" name="program">
-                        <option value="">All Programs</option>
-                        {% for key, name in program_choices %}
-                        <option value="{{ key }}" {% if current_program == key %}selected{% endif %}>{{ name }}</option>
-                        {% endfor %}
-                    </select>
+                    <label>Program Area</label>
+                    <div class="multi-select-dropdown" id="program-dropdown">
+                        <button type="button" class="multi-select-trigger" onclick="toggleMultiSelect('program-dropdown')">
+                            <span class="selected-text">{% if current_programs %}{{ current_programs|length }} selected{% else %}All Programs{% endif %}</span>
+                            <span class="dropdown-arrow">&#9662;</span>
+                        </button>
+                        <div class="multi-select-options">
+                            {% for key, name in program_choices %}
+                            <label class="multi-select-option">
+                                <input type="checkbox" name="program" value="{{ key }}" {% if key in current_programs %}checked{% endif %} onchange="updateMultiSelectText('program-dropdown', 'All Programs')">
+                                <span>{{ name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
                 <div class="filter-group">
-                    <label for="subtopic">Subtopic</label>
-                    <select id="subtopic" name="subtopic" {% if not current_program %}disabled{% endif %}>
-                        {% if current_program %}
-                        <option value="">All Subtopics</option>
-                            {% if current_program in program_subtopics_dropdown %}
-                                {% for subtopic in program_subtopics_dropdown[current_program].subtopics %}
-                                <option value="{{ subtopic.key }}" {% if current_subtopic == subtopic.key %}selected{% endif %}>{{ subtopic.name }}</option>
-                                {% endfor %}
-                            {% endif %}
-                        {% else %}
-                        <option value="">Select a program area first</option>
-                        {% endif %}
-                    </select>
+                    <label>Subtopic</label>
+                    <div class="multi-select-dropdown" id="subtopic-dropdown">
+                        <button type="button" class="multi-select-trigger" onclick="toggleMultiSelect('subtopic-dropdown')">
+                            <span class="selected-text">{% if current_subtopics %}{{ current_subtopics|length }} selected{% else %}All Subtopics{% endif %}</span>
+                            <span class="dropdown-arrow">&#9662;</span>
+                        </button>
+                        <div class="multi-select-options" id="subtopic-options">
+                            {% for program_key, program_data in program_subtopics_dropdown.items() %}
+                            <div class="multi-select-group-header" data-program="{{ program_key }}">{{ program_data.name }}</div>
+                            {% for subtopic in program_data.subtopics %}
+                            <label class="multi-select-option" data-program="{{ program_key }}">
+                                <input type="checkbox" name="subtopic" value="{{ subtopic.key }}" {% if subtopic.key in current_subtopics %}checked{% endif %} onchange="updateMultiSelectText('subtopic-dropdown', 'All Subtopics')">
+                                <span>{{ subtopic.name }}</span>
+                            </label>
+                            {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Row 2: Region, Country, Source, Date Range -->
             <div class="filters-row filters-row-2">
                 <div class="filter-group">
-                    <label for="region">Region</label>
-                    <select id="region" name="region">
-                        <option value="">All Regions</option>
-                        {% for key, name in region_choices %}
-                        <option value="{{ key }}" {% if current_region == key %}selected{% endif %}>{{ name }}</option>
-                        {% endfor %}
-                    </select>
+                    <label>Region</label>
+                    <div class="multi-select-dropdown" id="region-dropdown">
+                        <button type="button" class="multi-select-trigger" onclick="toggleMultiSelect('region-dropdown')">
+                            <span class="selected-text">{% if current_regions %}{{ current_regions|length }} selected{% else %}All Regions{% endif %}</span>
+                            <span class="dropdown-arrow">&#9662;</span>
+                        </button>
+                        <div class="multi-select-options">
+                            {% for key, name in region_choices %}
+                            <label class="multi-select-option">
+                                <input type="checkbox" name="region" value="{{ key }}" {% if key in current_regions %}checked{% endif %} onchange="updateMultiSelectText('region-dropdown', 'All Regions')">
+                                <span>{{ name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
                 <div class="filter-group">
-                    <label for="country">Country</label>
-                    <select id="country" name="country">
-                        <option value="">All Countries</option>
-                        {% for country in country_choices %}
-                        <option value="{{ country }}" {% if current_country == country %}selected{% endif %}>{{ country }}</option>
-                        {% endfor %}
-                    </select>
+                    <label>Country</label>
+                    <div class="multi-select-dropdown" id="country-dropdown">
+                        <button type="button" class="multi-select-trigger" onclick="toggleMultiSelect('country-dropdown')">
+                            <span class="selected-text">{% if current_countries %}{{ current_countries|length }} selected{% else %}All Countries{% endif %}</span>
+                            <span class="dropdown-arrow">&#9662;</span>
+                        </button>
+                        <div class="multi-select-options">
+                            {% for country in country_choices %}
+                            <label class="multi-select-option">
+                                <input type="checkbox" name="country" value="{{ country }}" {% if country in current_countries %}checked{% endif %} onchange="updateMultiSelectText('country-dropdown', 'All Countries')">
+                                <span>{{ country }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
                 <div class="filter-group">
                     <label for="source">Source</label>
@@ -198,7 +229,7 @@
         {% if pagination.pages > 1 %}
         <nav class="pagination">
             {% if pagination.has_prev %}
-            <a href="{{ url_for('main.browse', page=pagination.prev_num, program=current_program, subtopic=current_subtopic, region=current_region, country=current_country, source=current_source, date_range=current_date_range, date_from=current_date_from, date_to=current_date_to, search=current_search, include_ahead_of_print='1' if include_ahead_of_print else '0') }}" class="page-link">&laquo; Previous</a>
+            <a href="#" class="page-link" onclick="goToPage({{ pagination.prev_num }}); return false;">&laquo; Previous</a>
             {% endif %}
 
             {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -206,7 +237,7 @@
                     {% if page_num == pagination.page %}
                     <span class="page-link current">{{ page_num }}</span>
                     {% else %}
-                    <a href="{{ url_for('main.browse', page=page_num, program=current_program, subtopic=current_subtopic, region=current_region, country=current_country, source=current_source, date_range=current_date_range, date_from=current_date_from, date_to=current_date_to, search=current_search, include_ahead_of_print='1' if include_ahead_of_print else '0') }}" class="page-link">{{ page_num }}</a>
+                    <a href="#" class="page-link" onclick="goToPage({{ page_num }}); return false;">{{ page_num }}</a>
                     {% endif %}
                 {% else %}
                     <span class="page-ellipsis">...</span>
@@ -214,7 +245,7 @@
             {% endfor %}
 
             {% if pagination.has_next %}
-            <a href="{{ url_for('main.browse', page=pagination.next_num, program=current_program, subtopic=current_subtopic, region=current_region, country=current_country, source=current_source, date_range=current_date_range, date_from=current_date_from, date_to=current_date_to, search=current_search, include_ahead_of_print='1' if include_ahead_of_print else '0') }}" class="page-link">Next &raquo;</a>
+            <a href="#" class="page-link" onclick="goToPage({{ pagination.next_num }}); return false;">Next &raquo;</a>
             {% endif %}
         </nav>
         {% endif %}
@@ -230,53 +261,52 @@
 
 {% block scripts %}
 <script>
-// Store subtopics data for dynamic dropdown (flat structure: {program_key: {subtopics: [{key, name}]}})
-const programSubtopics = {{ program_subtopics_dropdown | tojson | safe }};
-const countriesByRegion = {{ countries_by_region | tojson | safe }};
+// Multi-select dropdown functionality
+function toggleMultiSelect(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    const isOpen = dropdown.classList.contains('open');
 
-// Update subtopic dropdown when program changes
-document.getElementById('program').addEventListener('change', function() {
-    const programKey = this.value;
-    const subtopicSelect = document.getElementById('subtopic');
+    // Close all other dropdowns first
+    document.querySelectorAll('.multi-select-dropdown.open').forEach(function(d) {
+        if (d.id !== dropdownId) {
+            d.classList.remove('open');
+        }
+    });
 
-    if (programKey && programSubtopics[programKey]) {
-        // Enable the dropdown and populate with subtopics
-        subtopicSelect.disabled = false;
-        subtopicSelect.innerHTML = '<option value="">All Subtopics</option>';
+    // Toggle this dropdown
+    dropdown.classList.toggle('open');
+}
 
-        const subtopics = programSubtopics[programKey].subtopics || [];
-        subtopics.forEach(function(subtopic) {
-            const option = document.createElement('option');
-            option.value = subtopic.key;
-            option.textContent = subtopic.name;
-            subtopicSelect.appendChild(option);
-        });
+function updateMultiSelectText(dropdownId, defaultText) {
+    const dropdown = document.getElementById(dropdownId);
+    const checked = dropdown.querySelectorAll('input[type="checkbox"]:checked');
+    const textSpan = dropdown.querySelector('.selected-text');
+
+    if (checked.length === 0) {
+        textSpan.textContent = defaultText;
+        textSpan.classList.add('placeholder');
+    } else if (checked.length === 1) {
+        textSpan.textContent = checked[0].nextElementSibling.textContent;
+        textSpan.classList.remove('placeholder');
     } else {
-        // Disable the dropdown and show placeholder
-        subtopicSelect.disabled = true;
-        subtopicSelect.innerHTML = '<option value="">Select a program area first</option>';
+        textSpan.textContent = checked.length + ' selected';
+        textSpan.classList.remove('placeholder');
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.multi-select-dropdown')) {
+        document.querySelectorAll('.multi-select-dropdown.open').forEach(function(d) {
+            d.classList.remove('open');
+        });
     }
 });
 
-// Update country dropdown when region changes (optional - filter countries by region)
-document.getElementById('region').addEventListener('change', function() {
-    const regionKey = this.value;
-    const countrySelect = document.getElementById('country');
-    const allCountries = {{ country_choices | tojson | safe }};
-
-    // Clear and rebuild
-    countrySelect.innerHTML = '<option value="">All Countries</option>';
-
-    let countriesToShow = allCountries;
-    if (regionKey && countriesByRegion[regionKey]) {
-        countriesToShow = countriesByRegion[regionKey];
-    }
-
-    countriesToShow.forEach(function(country) {
-        const option = document.createElement('option');
-        option.value = country;
-        option.textContent = country;
-        countrySelect.appendChild(option);
+// Prevent dropdown from closing when clicking inside options
+document.querySelectorAll('.multi-select-options').forEach(function(options) {
+    options.addEventListener('click', function(e) {
+        e.stopPropagation();
     });
 });
 
@@ -304,8 +334,34 @@ function updateDateRangeUI() {
 
 document.getElementById('date_range').addEventListener('change', updateDateRangeUI);
 
-// Run on page load to show info banner if > 12 months is already selected
-document.addEventListener('DOMContentLoaded', updateDateRangeUI);
+// Run on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateDateRangeUI();
+
+    // Initialize all multi-select text displays
+    updateMultiSelectText('program-dropdown', 'All Programs');
+    updateMultiSelectText('subtopic-dropdown', 'All Subtopics');
+    updateMultiSelectText('region-dropdown', 'All Regions');
+    updateMultiSelectText('country-dropdown', 'All Countries');
+});
+
+// Pagination function - submits form with new page number
+function goToPage(pageNum) {
+    const pageInput = document.getElementById('page-input');
+    if (pageInput) {
+        pageInput.value = pageNum;
+    } else {
+        // Create hidden input if it doesn't exist
+        const form = document.getElementById('filter-form');
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'page';
+        input.id = 'page-input';
+        input.value = pageNum;
+        form.appendChild(input);
+    }
+    document.getElementById('filter-form').submit();
+}
 </script>
 <script src="{{ url_for('static', filename='reading-list.js') }}"></script>
 {% endblock %}

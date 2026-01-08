@@ -995,6 +995,140 @@ body {
     width: 100%;
 }
 
+/* Multi-select dropdown styles */
+.multi-select-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.multi-select-trigger {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: white;
+    height: 36px;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+}
+
+.multi-select-trigger:hover {
+    border-color: #cbd5e0;
+}
+
+.multi-select-trigger:focus {
+    outline: none;
+    border-color: #3182ce;
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.1);
+}
+
+.multi-select-trigger .selected-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #4a5568;
+}
+
+.multi-select-trigger .selected-text.placeholder {
+    color: #a0aec0;
+}
+
+.multi-select-trigger .dropdown-arrow {
+    margin-left: 8px;
+    font-size: 0.7rem;
+    color: #718096;
+    transition: transform 0.2s;
+}
+
+.multi-select-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.multi-select-options {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.multi-select-dropdown.open .multi-select-options {
+    display: block;
+}
+
+.multi-select-option {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #4a5568;
+    transition: background-color 0.1s;
+}
+
+.multi-select-option:hover {
+    background-color: #f7fafc;
+}
+
+.multi-select-option input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.multi-select-option span {
+    flex: 1;
+}
+
+.multi-select-option.selected {
+    background-color: #ebf8ff;
+}
+
+/* Subtopic grouping in multi-select */
+.multi-select-group-header {
+    padding: 8px 12px 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: #f7fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.multi-select-group-header:not(:first-child) {
+    border-top: 1px solid #e2e8f0;
+    margin-top: 4px;
+}
+
+/* Selected count badge */
+.selected-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #3182ce;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+
 .date-inputs {
     display: flex;
     align-items: center;
