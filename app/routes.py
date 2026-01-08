@@ -603,11 +603,8 @@ def register():
         # Log them in
         login_user(user)
 
-        # Set session flag to show welcome banner with spam folder info
-        session['show_welcome_banner'] = True
-        session['welcome_email'] = user.email
-
-        flash('Account created successfully! Please set up your subscriptions.', 'success')
+        # Show welcome message with spam folder reminder (uses flash which clears after one view)
+        flash(f'Welcome! We\'ve sent a confirmation email to {user.email}. If you don\'t see it, please check your spam folder and mark emails from health.pubs.digest@gmail.com as safe to ensure you receive your digests.', 'welcome')
         return redirect(url_for('main.preferences'))
 
     return render_template('register.html')
@@ -678,15 +675,6 @@ def send_test_digest():
         flash(f'Could not send test digest: {error_msg}', 'error')
 
     return redirect(url_for('main.home'))
-
-
-@main_bp.route('/dismiss-welcome-banner', methods=['POST'])
-@login_required
-def dismiss_welcome_banner():
-    """Dismiss the welcome banner by clearing session flags."""
-    session.pop('show_welcome_banner', None)
-    session.pop('welcome_email', None)
-    return jsonify({'success': True})
 
 
 @main_bp.route('/suggestions', methods=['GET', 'POST'])
