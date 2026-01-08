@@ -648,8 +648,8 @@ def send_test_digest():
     """
     from app.services.digest_service import send_test_digest_to_user
 
-    # Get the base URL for email links
-    base_url = Config.BASE_URL
+    # Get the base URL for email links (use request URL, strip trailing slash)
+    base_url = request.url_root.rstrip('/')
 
     # Send the test digest
     result = send_test_digest_to_user(current_user, base_url)
