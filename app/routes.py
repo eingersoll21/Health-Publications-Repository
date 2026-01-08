@@ -331,12 +331,14 @@ def browse():
     search = request.args.get('search', '')
     sort_by = request.args.get('sort', 'relevance')  # 'relevance' or 'date'
     page = request.args.get('page', 1, type=int)
-    # Ahead-of-print filter: default is True (include them), but if parameter is explicitly absent after form submit, exclude
-    # Check if the parameter is in the request at all (form was submitted)
-    if 'include_ahead_of_print' in request.args:
+    # Ahead-of-print filter: default is True (include them), but respect unchecked checkbox
+    # Use 'filters_applied' hidden field to detect if form was submitted vs first visit
+    filters_applied = 'filters_applied' in request.args
+    if filters_applied:
+        # Form was submitted - checkbox unchecked means exclude ahead-of-print
         include_ahead_of_print = request.args.get('include_ahead_of_print') == '1'
     else:
-        # First visit or no filters applied - default to True (include ahead-of-print)
+        # First visit - default to True (include ahead-of-print)
         include_ahead_of_print = True
 
     # Build base query
