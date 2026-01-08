@@ -93,7 +93,7 @@
 
             <!-- Date Range Info Banner -->
             <div class="date-range-info-banner" id="date-range-info" style="display: none;">
-                Our database currently contains 6 months of publications. We're working on expanding this range.
+                Our database currently contains 12 months of publications. We're working on expanding this range.
             </div>
 
             <!-- Row 3: Checkbox + Buttons -->
@@ -293,9 +293,9 @@ function updateDateRangeUI() {
         customContainer.style.display = 'none';
     }
 
-    // Show info banner for date ranges > 6 months (180 days)
+    // Show info banner for date ranges > 12 months (365 days)
     const daysValue = parseInt(dateRange);
-    if (!isNaN(daysValue) && daysValue > 180) {
+    if (!isNaN(daysValue) && daysValue > 365) {
         infoBanner.style.display = 'block';
     } else {
         infoBanner.style.display = 'none';
@@ -304,7 +304,7 @@ function updateDateRangeUI() {
 
 document.getElementById('date_range').addEventListener('change', updateDateRangeUI);
 
-// Run on page load to show info banner if > 6 months is already selected
+// Run on page load to show info banner if > 12 months is already selected
 document.addEventListener('DOMContentLoaded', updateDateRangeUI);
 </script>
 <script src="{{ url_for('static', filename='reading-list.js') }}"></script>
