@@ -329,6 +329,7 @@ def browse():
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     search = request.args.get('search', '')
+    sort_by = request.args.get('sort', 'date')  # 'date' or 'relevance'
     page = request.args.get('page', 1, type=int)
     # Ahead-of-print filter: default is True (include them), but if parameter is explicitly absent after form submit, exclude
     # Check if the parameter is in the request at all (form was submitted)
@@ -411,8 +412,19 @@ def browse():
         except ValueError:
             pass
 
-    # Order by publication date (newest first)
-    query = query.order_by(Publication.publication_date.desc())
+    # Apply sorting
+    if sort_by == 'relevance' and search:
+        # Relevance sorting: prioritize title matches over abstract matches
+        # Use CASE to create a relevance score
+        from sqlalchemy import case, func
+        relevance_score = case(
+            (Publication.title.ilike(f'%{search}%'), 1),  # Title match = highest priority
+            else_=2  # Abstract only match = lower priority
+        )
+        query = query.order_by(relevance_score, Publication.publication_date.desc())
+    else:
+        # Default: sort by publication date (newest first)
+        query = query.order_by(Publication.publication_date.desc())
 
     # Get total count before pagination
     total_count = query.count()
@@ -492,6 +504,7 @@ def browse():
         current_date_from=date_from,
         current_date_to=date_to,
         current_search=search,
+        current_sort=sort_by,
         include_ahead_of_print=include_ahead_of_print,
         # Filter options
         program_choices=program_choices,

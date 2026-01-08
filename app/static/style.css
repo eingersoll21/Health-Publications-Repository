@@ -1263,11 +1263,41 @@ body {
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .results-count {
     color: #4a5568;
     font-size: 0.95rem;
+}
+
+.sort-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sort-control label {
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+.sort-control select {
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: white;
+    cursor: pointer;
+}
+
+.sort-control select:focus {
+    outline: none;
+    border-color: #3182ce;
 }
 
 .publications-list {
