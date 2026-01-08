@@ -1415,6 +1415,110 @@ def _is_user_delivery_time(user, now_utc):
     return True
 
 
+def send_test_digest_to_user(user, base_url=None):
+    """
+    Send a TEST digest email to a user immediately.
+
+    This is similar to send_digest_to_user but:
+    - Uses publications from the last 7 days
+    - Has a "(Test)" subject line
+    - Does NOT log publications as sent (so they'll appear in real digests)
+    - Does NOT update last_digest_sent
+
+    Args:
+        user: User object
+        base_url: Base URL for links. Defaults to Config.BASE_URL.
+
+    Returns:
+        Dictionary with results: {success, new_count, icymi_count, error}
+    """
+    if base_url is None:
+        base_url = Config.BASE_URL
+
+    logger.info(f"Preparing TEST digest for user {user.email}")
+
+    # Check if user has any subscriptions
+    if not user.has_subscriptions():
+        return {
+            'success': False,
+            'new_count': 0,
+            'icymi_count': 0,
+            'error': 'You need to set up subscriptions first. Go to My Subscriptions to choose your topics.'
+        }
+
+    # Get publications from the last 7 days (matching their subscriptions)
+    new_program_pubs = get_program_subscription_publications(
+        user, days_back=7, max_publications=MAX_NEW_PROGRAM_PUBS
+    )
+    new_country_watch_pubs = get_country_watch_publications(
+        user, days_back=7, max_publications=MAX_NEW_COUNTRY_WATCH_PUBS
+    )
+
+    # Combine into new_publications list, handling overlaps
+    new_pub_dict = {}
+
+    # Add program pubs (mark as from_program_sub)
+    for pub_data in new_program_pubs:
+        pub_id = pub_data['publication'].id
+        if pub_id not in new_pub_dict:
+            new_pub_dict[pub_id] = pub_data
+        new_pub_dict[pub_id]['from_program_sub'] = True
+
+    # Add country watch pubs (mark as from_country_watch)
+    for pub_data in new_country_watch_pubs:
+        pub_id = pub_data['publication'].id
+        if pub_id not in new_pub_dict:
+            new_pub_dict[pub_id] = pub_data
+        new_pub_dict[pub_id]['from_country_watch'] = True
+
+    new_publications = list(new_pub_dict.values())
+
+    # For test digest, we won't include ICYMI section (keep it simple)
+    icymi_publications = []
+
+    # If no publications at all, still send the digest (shows empty state)
+    try:
+        # Create digest content
+        content = create_digest_content(user, new_publications, icymi_publications, base_url)
+
+        # Override subject line for test
+        subject = "Your Global Health Research Hub Digest (Test)"
+
+        # Send the email
+        email_sent = send_email(
+            to_email=user.email,
+            subject=subject,
+            html_content=content['html'],
+            text_content=content['text']
+        )
+
+        if email_sent:
+            logger.info(f"TEST digest sent to {user.email}: {len(new_publications)} publications")
+            return {
+                'success': True,
+                'new_count': len(new_publications),
+                'icymi_count': 0,
+                'message': 'Test digest sent successfully'
+            }
+        else:
+            logger.error(f"Failed to send TEST digest to {user.email}")
+            return {
+                'success': False,
+                'new_count': 0,
+                'icymi_count': 0,
+                'error': 'Email sending failed. Please try again later.'
+            }
+
+    except Exception as e:
+        logger.error(f"Error creating TEST digest for {user.email}: {e}")
+        return {
+            'success': False,
+            'new_count': 0,
+            'icymi_count': 0,
+            'error': f'Error creating digest: {str(e)}'
+        }
+
+
 def send_all_pending_digests(base_url=None):
     """
     Send digests to all users who are due.

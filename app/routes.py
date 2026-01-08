@@ -641,13 +641,29 @@ def login():
 @login_required
 def send_test_digest():
     """
-    Send a test digest to the current user.
+    Send a test digest to the current user immediately.
 
-    This is a placeholder that will be implemented later.
-    For now, it just shows a flash message.
+    Uses their current subscriptions to generate a digest
+    with publications from the last 7 days.
     """
-    # TODO: Implement actual test digest sending
-    flash('Test digest feature coming soon! We will send a sample digest to your email.', 'info')
+    from app.services.digest_service import send_test_digest_to_user
+
+    # Get the base URL for email links
+    base_url = Config.BASE_URL
+
+    # Send the test digest
+    result = send_test_digest_to_user(current_user, base_url)
+
+    if result['success']:
+        pub_count = result.get('new_count', 0)
+        if pub_count > 0:
+            flash(f'Test digest sent! Check your inbox for {pub_count} publication{"s" if pub_count != 1 else ""}.', 'success')
+        else:
+            flash('Test digest sent! Check your inbox. No new publications matched your subscriptions this week.', 'success')
+    else:
+        error_msg = result.get('error', 'Unknown error occurred')
+        flash(f'Could not send test digest: {error_msg}', 'error')
+
     return redirect(url_for('main.home'))
 
 
