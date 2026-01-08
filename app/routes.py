@@ -603,9 +603,8 @@ def register():
         # Log them in
         login_user(user)
 
-        # Show welcome message with spam folder reminder (uses flash which clears after one view)
-        flash(f'Welcome! We\'ve sent a confirmation email to {user.email}. If you don\'t see it, please check your spam folder and mark emails from health.pubs.digest@gmail.com as safe to ensure you receive your digests.', 'welcome')
-        return redirect(url_for('main.preferences'))
+        # Redirect to preferences with welcome parameter (shows one-time welcome message)
+        return redirect(url_for('main.preferences', welcome=1, email=user.email))
 
     return render_template('register.html')
 

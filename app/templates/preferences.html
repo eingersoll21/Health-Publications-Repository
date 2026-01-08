@@ -3,6 +3,19 @@
 {% block title %}My Subscriptions - Global Health Research Hub{% endblock %}
 
 {% block content %}
+{% if request.args.get('welcome') %}
+<div class="welcome-banner">
+    <div class="welcome-banner-content">
+        <div class="welcome-banner-icon">&#9993;</div>
+        <div class="welcome-banner-text">
+            <strong>Welcome!</strong> We've sent a confirmation email to <strong>{{ request.args.get('email', 'your email') }}</strong>.
+            If you don't see it, please check your spam folder and mark emails from
+            <strong>health.pubs.digest@gmail.com</strong> as safe to ensure you receive your digests.
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="preferences-container compact">
     <div class="page-header">
         <h1>My Subscriptions</h1>

@@ -116,6 +116,38 @@ body {
     line-height: 1.5;
 }
 
+/* Welcome Banner (for new user registration) */
+.welcome-banner {
+    background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+    border: 1px solid #90cdf4;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(66, 153, 225, 0.15);
+}
+
+.welcome-banner-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.welcome-banner-icon {
+    font-size: 24px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.welcome-banner-text {
+    flex: 1;
+    color: #2c5282;
+    line-height: 1.5;
+}
+
+.welcome-banner-text strong {
+    color: #1a365d;
+}
+
 /* Buttons */
 .btn {
     display: inline-block;
