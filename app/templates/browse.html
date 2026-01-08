@@ -163,8 +163,8 @@
             <div class="sort-control">
                 <label for="sort">Sort by:</label>
                 <select id="sort" name="sort" form="filter-form" onchange="document.getElementById('page-input').value='1'; document.getElementById('filter-form').submit();">
-                    <option value="date" {% if current_sort == 'date' %}selected{% endif %}>Date (Newest)</option>
                     <option value="relevance" {% if current_sort == 'relevance' %}selected{% endif %}>Relevance</option>
+                    <option value="date" {% if current_sort == 'date' %}selected{% endif %}>Date (Newest)</option>
                 </select>
             </div>
         </div>

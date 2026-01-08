@@ -329,7 +329,7 @@ def browse():
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     search = request.args.get('search', '')
-    sort_by = request.args.get('sort', 'date')  # 'date' or 'relevance'
+    sort_by = request.args.get('sort', 'relevance')  # 'relevance' or 'date'
     page = request.args.get('page', 1, type=int)
     # Ahead-of-print filter: default is True (include them), but if parameter is explicitly absent after form submit, exclude
     # Check if the parameter is in the request at all (form was submitted)
