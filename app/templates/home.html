@@ -76,7 +76,15 @@
                 {% if date_range %}
                 <div class="stat-row">
                     <span class="stat-label">Date Range:</span>
-                    <span class="stat-value">{{ date_range.earliest.strftime('%b %Y') }} - {{ date_range.latest.strftime('%b %Y') }}</span>
+                    <span class="stat-value">
+                        {{ date_range.earliest.strftime('%b %Y') }} - Present
+                        <span class="info-icon database-info">&#9432;
+                            <span class="tooltip">
+                                <span class="tooltip-title">Database Coverage</span>
+                                <span class="tooltip-text">Our database currently contains publications from {{ date_range.earliest.strftime('%B %Y') }} onwards. We're actively working to expand coverage with additional historical data in future updates.</span>
+                            </span>
+                        </span>
+                    </span>
                 </div>
                 {% endif %}
             </div>
